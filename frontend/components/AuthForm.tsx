@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export default function AuthForm() {
   const [email, setEmail] = useState("");
@@ -17,9 +20,7 @@ export default function AuthForm() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
     });
 
     setLoading(false);
@@ -32,12 +33,17 @@ export default function AuthForm() {
 
   if (sent) {
     return (
-      <div className="text-center space-y-3">
-        <div className="text-4xl">📬</div>
+      <div className="text-center space-y-3" role="status" aria-live="polite">
+        <div className="flex justify-center">
+          <div className="w-12 h-12 rounded-full bg-brand/10 flex items-center justify-center">
+            <Mail size={22} className="text-brand-text" />
+          </div>
+        </div>
         <p className="font-semibold text-white">Vérifiez votre courriel</p>
         <p className="text-sm text-gray-400">
-          Nous avons envoyé un lien de connexion à <strong className="text-white">{email}</strong>.
-          Cliquez sur le lien pour accéder à votre tableau de bord.
+          Nous avons envoyé un lien de connexion à{" "}
+          <strong className="text-white">{email}</strong>.
+          Cliquez sur le lien pour accéder à votre espace.
         </p>
         <button
           onClick={() => { setSent(false); setEmail(""); }}
@@ -51,32 +57,28 @@ export default function AuthForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-1.5">
-        <label htmlFor="email" className="block text-sm font-medium text-gray-300">
-          Adresse courriel
-        </label>
-        <input
-          id="email"
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="vous@votreentreprise.com"
-          className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-        />
-      </div>
+      <Input
+        type="email"
+        label="Adresse courriel"
+        id="email"
+        required
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="vous@votreentreprise.com"
+        autoComplete="email"
+        error={error || undefined}
+        leadingIcon={<Mail size={15} />}
+      />
 
-      {error && (
-        <p className="text-red-400 text-xs">{error}</p>
-      )}
-
-      <button
+      <Button
         type="submit"
-        disabled={loading || !email}
-        className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 px-4 rounded-lg text-sm transition-colors"
+        size="lg"
+        loading={loading}
+        disabled={!email}
+        className="w-full"
       >
-        {loading ? "Envoi en cours…" : "Recevoir un lien de connexion"}
-      </button>
+        Recevoir un lien de connexion
+      </Button>
 
       <p className="text-center text-xs text-gray-500">
         Pas de mot de passe — connexion par lien magique uniquement.

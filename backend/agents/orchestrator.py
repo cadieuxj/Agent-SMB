@@ -51,7 +51,7 @@ def _classify(message: str) -> str:
     """Returns 'tax' | 'cash_flow' | 'general'."""
     try:
         response = _client.messages.create(
-            model=settings.claude_model,
+            model=settings.claude_haiku_model,
             max_tokens=64,
             system=_CLASSIFY_SYSTEM,
             tools=[_CLASSIFY_TOOL],

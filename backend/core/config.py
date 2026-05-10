@@ -18,8 +18,10 @@ class Settings(BaseSettings):
     app_secret_key: str = "change-me"
     cors_origins: str = "http://localhost:3000"
 
-    # Claude model — always use latest Sonnet for cost/perf balance
+    # Agent model — Sonnet for reasoning-heavy responses
     claude_model: str = "claude-sonnet-4-6"
+    # Haiku for lightweight classification to reduce cost
+    claude_haiku_model: str = "claude-haiku-4-5-20251001"
 
     @property
     def allowed_origins(self) -> list[str]:

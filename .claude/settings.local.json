@@ -6,7 +6,8 @@
       "Bash(echo \"exit: $?\")",
       "Bash(curl -s --max-time 10 http://localhost:8000/profiles/00000000-0000-0000-0000-000000000000)",
       "Bash(curl -v --max-time 10 http://localhost:8000/profiles/00000000-0000-0000-0000-000000000000)",
-      "Bash(curl -s --max-time 5 http://localhost:8000/health)"
+      "Bash(curl -s --max-time 5 http://localhost:8000/health)",
+      "Bash(npm run *)"
     ]
   }
 }

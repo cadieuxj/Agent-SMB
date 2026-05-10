@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { Menu, Send, MessageSquare } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { createClient } from "@/lib/supabase/client";
 import {
   sendMessage,
@@ -12,14 +15,18 @@ import {
   type Message,
   type Profile,
 } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import AppSidebar from "@/components/layout/AppSidebar";
+import MobileBottomTabs from "@/components/layout/MobileBottomTabs";
+import MobileDrawer from "@/components/layout/MobileDrawer";
 import MemoryPanel from "./MemoryPanel";
 import SuggestionsBanner from "./SuggestionsBanner";
 import ProfileSetup from "./ProfileSetup";
 
-const AGENT_LABELS: Record<string, string> = {
-  tax: "Fiscalité",
-  cash_flow: "Trésorerie",
-  general: "Conseiller",
+const AGENT_BADGE: Record<string, { label: string; variant: "tax" | "cashflow" | "brand" }> = {
+  tax:       { label: "Fiscalité",  variant: "tax" },
+  cash_flow: { label: "Trésorerie", variant: "cashflow" },
 };
 
 export default function ChatInterface({
@@ -44,11 +51,11 @@ export default function ChatInterface({
   const [showMemory, setShowMemory] = useState(false);
   const [memoryRefresh, setMemoryRefresh] = useState(0);
   const [language, setLanguage] = useState<"fr" | "en">("fr");
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load profile + conversations on mount
   useEffect(() => {
     getProfile(userId).then((p) => {
       setProfile(p);
@@ -67,6 +74,7 @@ export default function ChatInterface({
   async function selectConversation(conv: Conversation) {
     setActiveConvId(conv.id);
     setError("");
+    setDrawerOpen(false);
     const msgs = await getConversationMessages(userId, conv.id);
     setMessages(msgs);
   }
@@ -120,8 +128,13 @@ export default function ChatInterface({
       };
       setMessages((prev) => [...prev, assistantMsg]);
       setMemoryRefresh((n) => n + 1);
-    } catch (err: any) {
-      setError("Erreur de connexion — veuillez réessayer.");
+      setTimeout(() => setMemoryRefresh((n) => n + 1), 12000);
+    } catch {
+      setError(
+        language === "fr"
+          ? "Connexion interrompue — votre message n'a pas été envoyé. Réessayez."
+          : "Connection lost — your message was not sent. Please retry."
+      );
       setMessages((prev) => prev.filter((m) => m.id !== optimisticUser.id));
     } finally {
       setLoading(false);
@@ -140,6 +153,7 @@ export default function ChatInterface({
     setMessages([]);
     setActiveConvId(undefined);
     setError("");
+    setDrawerOpen(false);
     inputRef.current?.focus();
   }
 
@@ -152,112 +166,70 @@ export default function ChatInterface({
   if (profileLoading) {
     return (
       <div className="flex h-screen items-center justify-center text-gray-500 text-sm">
-        Chargement…
+        {language === "fr" ? "Chargement…" : "Loading…"}
       </div>
     );
   }
 
+  const sidebarProps = {
+    userEmail,
+    profile,
+    conversations,
+    activeConvId,
+    onSelectConversation: selectConversation,
+    onNewConversation: startNewConversation,
+    language,
+    onLanguageChange: setLanguage,
+    showMemory,
+    onToggleMemory: () => setShowMemory((v) => !v),
+    onOpenProfile: () => setShowProfileSetup(true),
+    onSignOut: handleSignOut,
+  };
+
   return (
     <>
       {showProfileSetup && (
-        <ProfileSetup userId={userId} userEmail={userEmail} onComplete={handleProfileComplete} initialProfile={profile} />
+        <ProfileSetup
+          userId={userId}
+          userEmail={userEmail}
+          onComplete={handleProfileComplete}
+          initialProfile={profile}
+        />
       )}
 
       <div className="flex h-screen overflow-hidden">
-        {/* Left sidebar */}
-        <aside className="w-60 shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col">
-          <div className="p-4 border-b border-gray-800">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl">🧠</span>
-              <span className="font-bold text-white text-sm">Agent SMB</span>
-            </div>
-            {profile?.business_name ? (
-              <p className="text-xs text-blue-400 font-medium truncate">{profile.business_name}</p>
-            ) : null}
-            <p className="text-xs text-gray-500 truncate">{userEmail}</p>
-          </div>
+        {/* Desktop sidebar */}
+        <AppSidebar className="hidden lg:flex" {...sidebarProps} />
 
-          <div className="p-3 space-y-1">
-            <button
-              onClick={startNewConversation}
-              className="w-full text-left text-xs bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-3 py-2 font-medium transition-colors"
-            >
-              + Nouvelle conversation
-            </button>
-
-            {/* Language toggle */}
-            <div className="flex rounded-lg overflow-hidden border border-gray-700 text-xs mt-2">
-              <button
-                onClick={() => setLanguage("fr")}
-                className={`flex-1 py-1.5 font-medium transition-colors ${
-                  language === "fr" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-                }`}
-              >
-                FR
-              </button>
-              <button
-                onClick={() => setLanguage("en")}
-                className={`flex-1 py-1.5 font-medium transition-colors ${
-                  language === "en" ? "bg-gray-700 text-white" : "text-gray-400 hover:text-white"
-                }`}
-              >
-                EN
-              </button>
-            </div>
-          </div>
-
-          {/* Conversation list */}
-          <div className="flex-1 overflow-y-auto scrollbar-thin px-2 space-y-0.5">
-            {conversations.map((conv) => (
-              <button
-                key={conv.id}
-                onClick={() => selectConversation(conv)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-xs truncate transition-colors ${
-                  activeConvId === conv.id
-                    ? "bg-gray-700 text-white"
-                    : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
-                }`}
-              >
-                {conv.title ?? "Conversation"}
-              </button>
-            ))}
-          </div>
-
-          {/* Bottom actions */}
-          <div className="p-3 border-t border-gray-800 space-y-1">
-            <button
-              onClick={() => setShowProfileSetup(true)}
-              className="w-full text-left text-xs text-gray-400 hover:text-gray-200 px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-            >
-              ⚙️ Mon profil
-            </button>
-            <button
-              onClick={() => setShowMemory((v) => !v)}
-              className={`w-full text-left text-xs px-3 py-2 rounded-lg transition-colors ${
-                showMemory ? "bg-gray-700 text-white" : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
-              }`}
-            >
-              🧩 {showMemory ? "Masquer la mémoire" : "Voir la mémoire"}
-            </button>
-            <button
-              onClick={handleSignOut}
-              className="w-full text-left text-xs text-gray-500 hover:text-gray-300 px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-            >
-              ↩ Déconnexion
-            </button>
-          </div>
-        </aside>
+        {/* Mobile drawer */}
+        <MobileDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+          <AppSidebar {...sidebarProps} />
+        </MobileDrawer>
 
         {/* Main chat area */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 pb-14 lg:pb-0">
+          {/* Mobile header */}
+          <div className="flex lg:hidden items-center h-12 px-4 border-b border-gray-800 shrink-0 bg-surface-raised">
+            <button
+              onClick={() => setDrawerOpen(true)}
+              className="p-1 text-gray-400 hover:text-gray-200 transition-colors"
+              aria-label="Ouvrir le menu"
+            >
+              <Menu size={20} />
+            </button>
+            <span className="ml-3 font-semibold text-sm text-white truncate">
+              {profile?.business_name ?? "Agent SMB"}
+            </span>
+          </div>
+
           <SuggestionsBanner userId={userId} />
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-6 space-y-4">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full text-center space-y-3 text-gray-600">
-                <span className="text-5xl">💬</span>
-                <p className="text-sm max-w-xs">
+                <MessageSquare size={40} strokeWidth={1.5} />
+                <p className="text-sm max-w-xs text-gray-500">
                   {language === "fr"
                     ? `Bonjour${profile?.full_name ? ` ${profile.full_name.split(" ")[0]}` : ""} ! Parlez-moi de votre entreprise.`
                     : `Hello${profile?.full_name ? ` ${profile.full_name.split(" ")[0]}` : ""}! Tell me about your business.`}
@@ -268,33 +240,44 @@ export default function ChatInterface({
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
               >
                 <div
-                  className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                  className={cn(
+                    "max-w-[75%] rounded-2xl px-4 py-3",
                     msg.role === "user"
-                      ? "bg-blue-600 text-white rounded-br-sm"
-                      : "bg-gray-800 text-gray-100 rounded-bl-sm"
-                  }`}
-                >
-                  {msg.role === "assistant" && msg.agent_used && msg.agent_used !== "general" && (
-                    <p className="text-xs text-gray-400 mb-1 font-medium">
-                      {AGENT_LABELS[msg.agent_used] ?? msg.agent_used}
-                    </p>
+                      ? "bg-brand text-white rounded-br-sm text-sm leading-relaxed whitespace-pre-wrap"
+                      : "bg-surface-overlay text-gray-100 rounded-bl-sm"
                   )}
-                  {msg.content}
+                >
+                  {msg.role === "assistant" && msg.agent_used && AGENT_BADGE[msg.agent_used] && (
+                    <div className="mb-1.5">
+                      <Badge variant={AGENT_BADGE[msg.agent_used].variant} size="sm">
+                        {AGENT_BADGE[msg.agent_used].label}
+                      </Badge>
+                    </div>
+                  )}
+                  {msg.role === "assistant" ? (
+                    <div className="markdown">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {msg.content}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    msg.content
+                  )}
                 </div>
               </div>
             ))}
 
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-gray-800 rounded-2xl rounded-bl-sm px-4 py-3">
+                <div className="bg-surface-overlay rounded-2xl rounded-bl-sm px-4 py-3">
                   <div className="flex gap-1">
                     {[0, 1, 2].map((i) => (
                       <span
                         key={i}
-                        className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
+                        className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce"
                         style={{ animationDelay: `${i * 150}ms` }}
                       />
                     ))}
@@ -309,12 +292,18 @@ export default function ChatInterface({
           {error && (
             <div className="mx-4 mb-2 px-4 py-2 bg-red-950 border border-red-800 rounded-lg text-xs text-red-300 flex items-center justify-between">
               <span>{error}</span>
-              <button onClick={() => setError("")} className="text-red-500 hover:text-red-300 ml-3">✕</button>
+              <button
+                onClick={() => setError("")}
+                className="text-red-500 hover:text-red-300 ml-3"
+                aria-label="Fermer"
+              >
+                ✕
+              </button>
             </div>
           )}
 
           {/* Input */}
-          <div className="border-t border-gray-800 p-4">
+          <div className="border-t border-gray-800 p-4 shrink-0">
             <div className="flex gap-3 items-end">
               <textarea
                 ref={inputRef}
@@ -327,31 +316,42 @@ export default function ChatInterface({
                     : "Type your message… (Enter to send)"
                 }
                 rows={1}
-                className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent max-h-36 scrollbar-thin"
+                className="flex-1 bg-surface-overlay border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent max-h-36 scrollbar-thin"
                 style={{ minHeight: "44px" }}
                 onInput={(e) => {
                   const el = e.currentTarget;
                   el.style.height = "auto";
                   el.style.height = Math.min(el.scrollHeight, 144) + "px";
                 }}
+                aria-label={language === "fr" ? "Message" : "Message"}
               />
               <button
                 onClick={handleSend}
                 disabled={loading || !input.trim()}
-                className="shrink-0 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl p-3 transition-colors"
+                className="shrink-0 bg-brand hover:bg-brand-dark disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-xl p-3 transition-colors"
+                aria-label={language === "fr" ? "Envoyer" : "Send"}
               >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
-                </svg>
+                <Send size={16} />
               </button>
             </div>
-            <p className="text-xs text-gray-600 mt-2 text-center">Maj+Entrée pour nouvelle ligne</p>
+            <p className="text-xs text-gray-600 mt-2 text-center">
+              {language === "fr" ? "Maj+Entrée pour nouvelle ligne" : "Shift+Enter for new line"}
+            </p>
           </div>
         </div>
 
-        {/* Memory panel */}
+        {/* Memory panel (desktop) */}
         {showMemory && <MemoryPanel userId={userId} refreshKey={memoryRefresh} />}
       </div>
+
+      {/* Mobile bottom tabs */}
+      <MobileBottomTabs
+        activeTab={showMemory ? "memory" : "chat"}
+        onChatClick={startNewConversation}
+        onMemoryClick={() => setShowMemory((v) => !v)}
+        onSettingsClick={() => setShowProfileSetup(true)}
+        language={language}
+      />
     </>
   );
 }
