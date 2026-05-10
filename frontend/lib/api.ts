@@ -71,7 +71,7 @@ export async function sendMessage(
 
 export async function getMemories(userId: string): Promise<Memory[]> {
   const res = await fetch(`${BASE}/memories/${userId}`);
-  if (!res.ok) return [];
+  if (!res.ok) throw new Error(`Backend ${res.status}: ${await res.text()}`);
   const data = await res.json();
   return data.memories ?? [];
 }
@@ -112,7 +112,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   return res.json();
 }
 
-export async function updateProfile(userId: string, data: Partial<Omit<Profile, "id" | "email">>): Promise<Profile> {
+export async function updateProfile(userId: string, data: Partial<Omit<Profile, "id">>): Promise<Profile> {
   const res = await fetch(`${BASE}/profiles/${userId}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },

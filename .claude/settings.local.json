@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(curl -s --max-time 30 http://localhost:8000/memories/test-user-123)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(curl -s --max-time 10 http://localhost:8000/profiles/00000000-0000-0000-0000-000000000000)",
+      "Bash(curl -v --max-time 10 http://localhost:8000/profiles/00000000-0000-0000-0000-000000000000)",
+      "Bash(curl -s --max-time 5 http://localhost:8000/health)"
     ]
   }
 }

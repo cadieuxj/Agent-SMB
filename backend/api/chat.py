@@ -1,11 +1,16 @@
-from fastapi import APIRouter, HTTPException, Depends
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+from fastapi import APIRouter, BackgroundTasks
 from pydantic import BaseModel
-from uuid import UUID
 
 from agents.orchestrator import route
+from core.mem0_client import add_memory
 from core.supabase_client import get_supabase
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+# Shared thread pool for all blocking Mem0 + Anthropic calls
+_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="chat-worker")
 
 
 class ChatRequest(BaseModel):
@@ -23,11 +28,25 @@ class ChatResponse(BaseModel):
     conversation_id: str
 
 
+def _save_memory(user_id: str, user_msg: str, assistant_reply: str) -> None:
+    """Fire-and-forget: persist exchange to Mem0 (runs in background thread)."""
+    try:
+        add_memory(
+            user_id=user_id,
+            messages=[
+                {"role": "user", "content": user_msg},
+                {"role": "assistant", "content": assistant_reply},
+            ],
+        )
+    except Exception:
+        pass
+
+
 @router.post("", response_model=ChatResponse)
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, background_tasks: BackgroundTasks):
     db = get_supabase()
 
-    # Ensure profile row exists with real email when available
+    # Ensure profile row exists
     profile_data: dict = {"id": req.user_id}
     if req.email:
         profile_data["email"] = req.email
@@ -43,7 +62,7 @@ async def chat(req: ChatRequest):
         )
         conv_id = result.data[0]["id"]
 
-    # Load recent conversation history (last 10 messages)
+    # Load recent conversation history
     history_result = (
         db.table("messages")
         .select("role, content")
@@ -54,15 +73,19 @@ async def chat(req: ChatRequest):
     )
     history = [{"role": r["role"], "content": r["content"]} for r in history_result.data]
 
-    # Route to correct agent
-    result = route(
-        user_id=req.user_id,
-        message=req.message,
-        conversation_history=history,
-        language=req.language,
+    # Run the blocking classify + Mem0 search + Anthropic call in a thread
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(
+        _executor,
+        lambda: route(
+            user_id=req.user_id,
+            message=req.message,
+            conversation_history=history,
+            language=req.language,
+        ),
     )
 
-    # Persist both turns
+    # Persist both turns to Supabase (fast, ~100ms)
     db.table("messages").insert([
         {
             "conversation_id": conv_id,
@@ -79,6 +102,9 @@ async def chat(req: ChatRequest):
             "agent_used": result["agent"],
         },
     ]).execute()
+
+    # Save to Mem0 after responding — user doesn't wait for this
+    background_tasks.add_task(_save_memory, req.user_id, req.message, result["reply"])
 
     return ChatResponse(
         reply=result["reply"],

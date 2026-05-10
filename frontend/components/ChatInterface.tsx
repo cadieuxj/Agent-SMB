@@ -160,7 +160,7 @@ export default function ChatInterface({
   return (
     <>
       {showProfileSetup && (
-        <ProfileSetup userId={userId} onComplete={handleProfileComplete} />
+        <ProfileSetup userId={userId} userEmail={userEmail} onComplete={handleProfileComplete} initialProfile={profile} />
       )}
 
       <div className="flex h-screen overflow-hidden">

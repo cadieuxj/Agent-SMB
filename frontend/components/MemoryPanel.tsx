@@ -12,13 +12,18 @@ export default function MemoryPanel({
 }) {
   const [memories, setMemories] = useState<Memory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setFetchError(null);
     getMemories(userId)
       .then(setMemories)
-      .catch(() => setMemories([]))
+      .catch((err) => {
+        setMemories([]);
+        setFetchError(err?.message ?? "Impossible de charger les souvenirs.");
+      })
       .finally(() => setLoading(false));
   }, [userId, refreshKey]);
 
@@ -52,7 +57,15 @@ export default function MemoryPanel({
           </div>
         )}
 
-        {!loading && memories.length === 0 && (
+        {!loading && fetchError && (
+          <div className="text-center py-8 text-red-400 text-xs space-y-2 px-2">
+            <p className="text-2xl">⚠️</p>
+            <p className="font-medium">Erreur de chargement</p>
+            <p className="text-red-500 break-all">{fetchError}</p>
+          </div>
+        )}
+
+        {!loading && !fetchError && memories.length === 0 && (
           <div className="text-center py-8 text-gray-600 text-xs space-y-2">
             <p className="text-3xl">🫙</p>
             <p>Aucun souvenir encore.<br />Commencez à chatter pour construire votre profil.</p>

@@ -1,9 +1,13 @@
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from core.mem0_client import get_all_memories, delete_memory, search_memories
 
 router = APIRouter(prefix="/memories", tags=["memories"])
+
+_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="mem0-worker")
 
 
 class MemoryItem(BaseModel):
@@ -20,7 +24,8 @@ class MemoriesResponse(BaseModel):
 
 @router.get("/{user_id}", response_model=MemoriesResponse)
 async def list_memories(user_id: str):
-    memories = get_all_memories(user_id=user_id)
+    loop = asyncio.get_event_loop()
+    memories = await loop.run_in_executor(_executor, lambda: get_all_memories(user_id=user_id))
     items = [
         MemoryItem(
             id=m.get("id", ""),
@@ -35,7 +40,10 @@ async def list_memories(user_id: str):
 
 @router.get("/{user_id}/search", response_model=MemoriesResponse)
 async def search(user_id: str, q: str, limit: int = 10):
-    memories = search_memories(user_id=user_id, query=q, limit=limit)
+    loop = asyncio.get_event_loop()
+    memories = await loop.run_in_executor(
+        _executor, lambda: search_memories(user_id=user_id, query=q, limit=limit)
+    )
     items = [
         MemoryItem(
             id=m.get("id", ""),
@@ -50,7 +58,8 @@ async def search(user_id: str, q: str, limit: int = 10):
 @router.delete("/{user_id}/{memory_id}")
 async def remove_memory(user_id: str, memory_id: str):
     try:
-        delete_memory(memory_id)
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(_executor, lambda: delete_memory(memory_id))
         return {"deleted": memory_id}
     except Exception as e:
         raise HTTPException(status_code=404, detail=str(e))

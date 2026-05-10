@@ -96,15 +96,4 @@ def chat(
         messages=messages,
     )
 
-    reply = response.content[0].text
-
-    # Persist this exchange to Mem0 asynchronously-style (blocking for simplicity)
-    add_memory(
-        user_id=user_id,
-        messages=[
-            {"role": "user", "content": message},
-            {"role": "assistant", "content": reply},
-        ],
-    )
-
-    return reply
+    return response.content[0].text

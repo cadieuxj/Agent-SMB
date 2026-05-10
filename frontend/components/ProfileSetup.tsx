@@ -3,6 +3,13 @@
 import { useState } from "react";
 import { updateProfile, type Profile } from "@/lib/api";
 
+type ProfileSetupProps = {
+  userId: string;
+  userEmail: string;
+  onComplete: (profile: Profile) => void;
+  initialProfile?: Profile | null;
+};
+
 const BUSINESS_TYPES = [
   { value: "restaurant", label: "Restaurant / Café" },
   { value: "retail", label: "Commerce de détail" },
@@ -25,19 +32,13 @@ const PROVINCES = [
   { value: "PE", label: "Île-du-Prince-Édouard" },
 ];
 
-export default function ProfileSetup({
-  userId,
-  onComplete,
-}: {
-  userId: string;
-  onComplete: (profile: Profile) => void;
-}) {
+export default function ProfileSetup({ userId, userEmail, onComplete, initialProfile }: ProfileSetupProps) {
   const [form, setForm] = useState({
-    full_name: "",
-    business_name: "",
-    business_type: "",
-    province: "QC",
-    language: "fr",
+    full_name: initialProfile?.full_name ?? "",
+    business_name: initialProfile?.business_name ?? "",
+    business_type: initialProfile?.business_type ?? "",
+    province: initialProfile?.province ?? "QC",
+    language: initialProfile?.language ?? "fr",
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -55,7 +56,7 @@ export default function ProfileSetup({
     setLoading(true);
     setError("");
     try {
-      const profile = await updateProfile(userId, form);
+      const profile = await updateProfile(userId, { ...form, email: userEmail });
       onComplete(profile);
     } catch (err: any) {
       setError(err.message ?? "Erreur lors de la sauvegarde.");

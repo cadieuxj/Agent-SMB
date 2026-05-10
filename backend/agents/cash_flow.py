@@ -7,7 +7,7 @@ invoices, payroll costs, or financial planning.
 
 import anthropic
 from core.config import settings
-from core.mem0_client import search_memories, add_memory
+from core.mem0_client import search_memories
 
 _client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
@@ -87,14 +87,4 @@ def chat(
         messages=messages,
     )
 
-    reply = response.content[0].text
-
-    add_memory(
-        user_id=user_id,
-        messages=[
-            {"role": "user", "content": message},
-            {"role": "assistant", "content": reply},
-        ],
-    )
-
-    return reply
+    return response.content[0].text
