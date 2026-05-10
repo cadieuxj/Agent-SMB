@@ -1,0 +1,56 @@
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+
+from core.mem0_client import get_all_memories, delete_memory, search_memories
+
+router = APIRouter(prefix="/memories", tags=["memories"])
+
+
+class MemoryItem(BaseModel):
+    id: str
+    memory: str
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+class MemoriesResponse(BaseModel):
+    memories: list[MemoryItem]
+    total: int
+
+
+@router.get("/{user_id}", response_model=MemoriesResponse)
+async def list_memories(user_id: str):
+    memories = get_all_memories(user_id=user_id)
+    items = [
+        MemoryItem(
+            id=m.get("id", ""),
+            memory=m.get("memory", m.get("text", "")),
+            created_at=str(m.get("created_at", "")),
+            updated_at=str(m.get("updated_at", "")),
+        )
+        for m in memories
+    ]
+    return MemoriesResponse(memories=items, total=len(items))
+
+
+@router.get("/{user_id}/search", response_model=MemoriesResponse)
+async def search(user_id: str, q: str, limit: int = 10):
+    memories = search_memories(user_id=user_id, query=q, limit=limit)
+    items = [
+        MemoryItem(
+            id=m.get("id", ""),
+            memory=m.get("memory", m.get("text", "")),
+            created_at=str(m.get("created_at", "")),
+        )
+        for m in memories
+    ]
+    return MemoriesResponse(memories=items, total=len(items))
+
+
+@router.delete("/{user_id}/{memory_id}")
+async def remove_memory(user_id: str, memory_id: str):
+    try:
+        delete_memory(memory_id)
+        return {"deleted": memory_id}
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
