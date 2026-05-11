@@ -1,12 +1,15 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Resolve .env relative to this file so the path is correct regardless of CWD
+# Load .env for local dev; in production (Fly.io) env vars are injected directly.
 _ENV_FILE = Path(__file__).parent.parent / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=_ENV_FILE if _ENV_FILE.exists() else None,
+        extra="ignore",
+    )
 
     anthropic_api_key: str
     supabase_url: str

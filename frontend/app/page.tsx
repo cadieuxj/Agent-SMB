@@ -1,3 +1,4 @@
+import { Brain } from "lucide-react";
 import AuthForm from "@/components/AuthForm";
 
 export default function LoginPage({
@@ -10,8 +11,8 @@ export default function LoginPage({
       <div className="w-full max-w-md space-y-8">
         {/* Logo + headline */}
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-blue-600 text-2xl">
-            🧠
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand">
+            <Brain className="text-white" size={26} />
           </div>
           <h1 className="text-3xl font-bold tracking-tight">Agent SMB</h1>
           <p className="text-gray-400 text-sm leading-relaxed">

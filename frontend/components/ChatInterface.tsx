@@ -193,6 +193,7 @@ export default function ChatInterface({
           userId={userId}
           userEmail={userEmail}
           onComplete={handleProfileComplete}
+          onClose={profile?.business_name ? () => setShowProfileSetup(false) : undefined}
           initialProfile={profile}
         />
       )}

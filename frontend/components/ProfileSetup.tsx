@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { X } from "lucide-react";
 import { updateProfile, type Profile } from "@/lib/api";
 
 type ProfileSetupProps = {
   userId: string;
   userEmail: string;
   onComplete: (profile: Profile) => void;
+  onClose?: () => void;
   initialProfile?: Profile | null;
 };
 
@@ -32,7 +34,7 @@ const PROVINCES = [
   { value: "PE", label: "Île-du-Prince-Édouard" },
 ];
 
-export default function ProfileSetup({ userId, userEmail, onComplete, initialProfile }: ProfileSetupProps) {
+export default function ProfileSetup({ userId, userEmail, onComplete, onClose, initialProfile }: ProfileSetupProps) {
   const [form, setForm] = useState({
     full_name: initialProfile?.full_name ?? "",
     business_name: initialProfile?.business_name ?? "",
@@ -66,8 +68,20 @@ export default function ProfileSetup({ userId, userEmail, onComplete, initialPro
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-8 space-y-6">
+    <div
+      className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose?.(); }}
+    >
+      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-md p-8 space-y-6 relative">
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-gray-500 hover:text-gray-300 transition-colors"
+            aria-label="Fermer"
+          >
+            <X size={18} />
+          </button>
+        )}
         <div className="space-y-1">
           <h2 className="text-xl font-bold text-white">Configurez votre profil</h2>
           <p className="text-sm text-gray-400">
