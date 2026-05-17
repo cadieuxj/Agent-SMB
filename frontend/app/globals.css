@@ -4,39 +4,171 @@
 
 @layer base {
   html { @apply h-full; }
-  body { @apply h-full bg-gray-950 text-gray-100 antialiased; }
+  body {
+    @apply h-full antialiased;
+    background-color: #0a0e1a;
+    color: #f1f5f9;
+  }
+
+  /* ── Light theme ─────────────────────────────────────────────────────── */
+  html.theme-light body {
+    background-color: #f1f5f9;
+    color: #0f172a;
+  }
+
+  /* Surfaces */
+  html.theme-light .bg-surface-base    { background-color: #f1f5f9 !important; }
+  html.theme-light .bg-surface-raised  { background-color: #ffffff !important; }
+  html.theme-light .bg-surface-overlay { background-color: #f8fafc !important; }
+
+  /* Borders */
+  html.theme-light .border-gray-800 { border-color: #e2e8f0 !important; }
+  html.theme-light .border-gray-700 { border-color: #cbd5e1 !important; }
+  html.theme-light .border-gray-600 { border-color: #94a3b8 !important; }
+
+  /* Text — high-contrast hierarchy */
+  html.theme-light .text-white    { color: #0f172a !important; }
+  html.theme-light .text-gray-100 { color: #0f172a !important; }
+  html.theme-light .text-gray-200 { color: #1e293b !important; }
+  html.theme-light .text-gray-300 { color: #334155 !important; }
+  html.theme-light .text-gray-400 { color: #475569 !important; }
+  html.theme-light .text-gray-500 { color: #64748b !important; }
+  html.theme-light .text-gray-600 { color: #94a3b8 !important; }
+
+  /* Hover backgrounds */
+  html.theme-light .hover\:bg-gray-800:hover { background-color: #f1f5f9 !important; }
+  html.theme-light .hover\:bg-gray-700:hover { background-color: #e2e8f0 !important; }
+
+  /* Inputs */
+  html.theme-light input,
+  html.theme-light textarea,
+  html.theme-light select {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border-color: #cbd5e1 !important;
+  }
+  html.theme-light input::placeholder,
+  html.theme-light textarea::placeholder { color: #94a3b8 !important; }
+
+  /* Sidebar */
+  html.theme-light aside {
+    background-color: #ffffff !important;
+    border-color: #e2e8f0 !important;
+  }
+
+  /* Cards */
+  html.theme-light .rounded-xl,
+  html.theme-light .rounded-2xl {
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  /* Nav active state */
+  html.theme-light .bg-brand\/10 { background-color: #eef2ff !important; }
+
+  /* Bottom tabs */
+  html.theme-light nav.fixed { background-color: #ffffff !important; border-color: #e2e8f0 !important; }
+
+  /* ── Markdown light mode — ALL elements with hardcoded dark-theme colors ── */
+  html.theme-light .markdown         { color: #1e293b !important; }
+  html.theme-light .markdown p       { color: #1e293b !important; }
+  html.theme-light .markdown li      { color: #1e293b !important; }
+
+  /* Headings — were hardcoded #f1f5f9 (white) */
+  html.theme-light .markdown h1      { color: #0f172a !important; }
+  html.theme-light .markdown h2      { color: #0f172a !important; }
+  html.theme-light .markdown h3      { color: #1e293b !important; }
+
+  /* Bold — was hardcoded #f1f5f9 (white) */
+  html.theme-light .markdown strong  { color: #0f172a !important; }
+
+  /* Italic */
+  html.theme-light .markdown em      { color: #334155 !important; }
+
+  /* Code */
+  html.theme-light .markdown code    { background: #eef2ff !important; color: #4338ca !important; }
+  html.theme-light .markdown pre     { background: #f1f5f9 !important; border-color: #e2e8f0 !important; }
+  html.theme-light .markdown pre code { background: transparent !important; color: #1e293b !important; }
+
+  /* Blockquote */
+  html.theme-light .markdown blockquote { color: #475569 !important; border-color: #cbd5e1 !important; }
+
+  /* Horizontal rule */
+  html.theme-light .markdown hr { border-color: #e2e8f0 !important; }
+
+  /* Links */
+  html.theme-light .markdown a       { color: #4f46e5 !important; }
+  html.theme-light .markdown a:hover { color: #6366f1 !important; }
+
+  /* Table — headers were hardcoded #f1f5f9 */
+  html.theme-light .markdown th { color: #0f172a !important; border-bottom-color: #cbd5e1 !important; }
+  html.theme-light .markdown td { color: #334155 !important; border-bottom-color: #e2e8f0 !important; }
+
+  /* ── Chat message bubbles ── */
+  /* User message: keep brand gradient, text stays white (readable on dark bg) */
+  html.theme-light .bg-brand {
+    background: linear-gradient(135deg, #6366f1, #4f46e5) !important;
+  }
+  /* Assistant message bubble: light indigo tint */
+  html.theme-light .bg-surface-overlay.rounded-bl-sm {
+    background-color: #eef2ff !important;
+    color: #1e293b !important;
+  }
+  html.theme-light .bg-surface-overlay.rounded-bl-sm .text-gray-100 { color: #1e293b !important; }
+
+  /* ── Scrollbar ── */
+  html.theme-light .scrollbar-thin {
+    scrollbar-color: #cbd5e1 transparent !important;
+  }
 }
 
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: theme('colors.gray.700') transparent;
+    scrollbar-color: #1e2433 transparent;
   }
   .transition-default { transition: all 150ms ease-out; }
   .transition-panel   { transition: transform 200ms ease-out, opacity 200ms ease-out; }
   .transition-page    { transition: opacity 300ms ease-out; }
+
+  .card-glow:hover {
+    box-shadow: 0 0 0 1px rgba(99,102,241,0.2), 0 4px 24px rgba(99,102,241,0.06);
+  }
+
+  .ring-surface {
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 1px 3px rgba(0,0,0,0.4);
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #818cf8, #6366f1);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
 }
 
 @layer components {
+  /* ── Dark mode markdown (default) ── */
   .markdown {
     @apply text-sm leading-relaxed;
+    color: #e2e8f0;
   }
-  .markdown p { @apply mb-2 last:mb-0; }
-  .markdown h1 { @apply text-base font-bold mb-2 mt-3 first:mt-0; }
-  .markdown h2 { @apply text-sm font-bold mb-2 mt-3 first:mt-0; }
-  .markdown h3 { @apply text-sm font-semibold mb-1 mt-2 first:mt-0; }
-  .markdown ul { @apply list-disc pl-4 mb-2 space-y-0.5; }
-  .markdown ol { @apply list-decimal pl-4 mb-2 space-y-0.5; }
-  .markdown li { @apply leading-relaxed; }
-  .markdown strong { @apply font-semibold; }
-  .markdown em { @apply italic; }
-  .markdown code { @apply font-mono text-xs bg-black/30 rounded px-1 py-0.5; }
-  .markdown pre { @apply bg-black/30 rounded-lg p-3 mb-2 overflow-x-auto; }
-  .markdown pre code { @apply bg-transparent p-0; }
-  .markdown blockquote { @apply border-l-2 border-gray-500 pl-3 text-gray-400 italic mb-2; }
-  .markdown hr { @apply border-gray-600 my-3; }
-  .markdown a { @apply underline opacity-80 hover:opacity-100; }
-  .markdown table { @apply w-full text-xs mb-2 border-collapse; }
-  .markdown th { @apply text-left font-semibold border-b border-gray-600 pb-1 pr-3; }
-  .markdown td { @apply border-b border-gray-700/50 py-1 pr-3; }
+  .markdown p       { @apply mb-2 last:mb-0; }
+  .markdown h1      { @apply text-base font-bold mb-2 mt-3 first:mt-0; color: #f1f5f9; }
+  .markdown h2      { @apply text-sm font-bold mb-2 mt-3 first:mt-0; color: #f1f5f9; }
+  .markdown h3      { @apply text-sm font-semibold mb-1 mt-2 first:mt-0; color: #f1f5f9; }
+  .markdown ul      { @apply list-disc pl-4 mb-2 space-y-0.5; }
+  .markdown ol      { @apply list-decimal pl-4 mb-2 space-y-0.5; }
+  .markdown li      { @apply leading-relaxed; }
+  .markdown strong  { @apply font-semibold; color: #f1f5f9; }
+  .markdown em      { @apply italic; }
+  .markdown code    { @apply font-mono text-xs rounded px-1 py-0.5; background: rgba(99,102,241,0.12); color: #a5b4fc; }
+  .markdown pre     { @apply rounded-xl p-4 mb-2 overflow-x-auto; background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.06); }
+  .markdown pre code { background: transparent; @apply p-0; }
+  .markdown blockquote { @apply border-l-2 border-gray-600 pl-3 italic mb-2; color: #94a3b8; }
+  .markdown hr      { @apply border-gray-700 my-3; }
+  .markdown a       { @apply underline; color: #818cf8; }
+  .markdown a:hover { color: #a5b4fc; }
+  .markdown table   { @apply w-full text-xs mb-2 border-collapse; }
+  .markdown th      { @apply text-left font-semibold pb-1 pr-3; border-bottom: 1px solid rgba(255,255,255,0.1); color: #f1f5f9; }
+  .markdown td      { @apply py-1 pr-3; border-bottom: 1px solid rgba(255,255,255,0.05); }
 }

@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     app_env: str = "development"
     app_secret_key: str = "change-me"
     cors_origins: str = "http://localhost:3000"
+    app_url: str = "http://localhost:3000"
+
+    # Email (Resend)
+    resend_api_key: str = ""
+    from_email: str = "Agent SMB <noreply@cadieuxai.com>"
 
     # Agent model — Sonnet for reasoning-heavy responses
     claude_model: str = "claude-sonnet-4-6"

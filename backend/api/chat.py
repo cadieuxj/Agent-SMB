@@ -1,9 +1,14 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 
 from agents.orchestrator import route
+from core.auth import get_current_user_id, require_own_user
 from core.mem0_client import add_memory
 from core.supabase_client import get_supabase
 
@@ -19,6 +24,7 @@ class ChatRequest(BaseModel):
     message: str
     conversation_id: str | None = None
     language: str = "fr"
+    forced_agent: str | None = None  # expert mode: "tax" | "cash_flow" | "general"
 
 
 class ChatResponse(BaseModel):
@@ -43,7 +49,14 @@ def _save_memory(user_id: str, user_msg: str, assistant_reply: str) -> None:
 
 
 @router.post("", response_model=ChatResponse)
-async def chat(req: ChatRequest, background_tasks: BackgroundTasks):
+@limiter.limit("20/minute")
+async def chat(
+    request: Request,
+    req: ChatRequest,
+    background_tasks: BackgroundTasks,
+    token_user_id: str = Depends(get_current_user_id),
+):
+    require_own_user(req.user_id, token_user_id)
     db = get_supabase()
 
     # Ensure profile row exists
@@ -82,6 +95,7 @@ async def chat(req: ChatRequest, background_tasks: BackgroundTasks):
             message=req.message,
             conversation_history=history,
             language=req.language,
+            forced_agent=req.forced_agent,
         ),
     )
 

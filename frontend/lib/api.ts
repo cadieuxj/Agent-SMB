@@ -1,4 +1,18 @@
+import { createClient } from "@/lib/supabase/client";
+
 const BASE = "/api/backend";
+
+/** Fetch the current session's JWT and return it as an Authorization header. */
+async function authHeader(): Promise<Record<string, string>> {
+  try {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      return { Authorization: `Bearer ${session.access_token}` };
+    }
+  } catch {}
+  return {};
+}
 
 export interface ChatResponse {
   reply: string;
@@ -51,6 +65,8 @@ export interface Profile {
   business_type: string | null;
   province: string;
   language: string;
+  sales_tax_registered: boolean | null;
+  revenue_range: string | null;
 }
 
 export async function sendMessage(
@@ -58,56 +74,69 @@ export async function sendMessage(
   email: string,
   message: string,
   conversationId?: string,
-  language = "fr"
+  language = "fr",
+  forcedAgent?: string,
 ): Promise<ChatResponse> {
   const res = await fetch(`${BASE}/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ user_id: userId, email, message, conversation_id: conversationId, language }),
+    headers: { "Content-Type": "application/json", ...(await authHeader()) },
+    body: JSON.stringify({
+      user_id: userId,
+      email,
+      message,
+      conversation_id: conversationId,
+      language,
+      forced_agent: forcedAgent ?? null,
+    }),
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
 
 export async function getMemories(userId: string): Promise<Memory[]> {
-  const res = await fetch(`${BASE}/memories/${userId}`);
+  const res = await fetch(`${BASE}/memories/${userId}`, { headers: await authHeader() });
   if (!res.ok) throw new Error(`Backend ${res.status}: ${await res.text()}`);
   const data = await res.json();
   return data.memories ?? [];
 }
 
 export async function deleteMemory(userId: string, memoryId: string): Promise<void> {
-  const res = await fetch(`${BASE}/memories/${userId}/${memoryId}`, { method: "DELETE" });
+  const res = await fetch(`${BASE}/memories/${userId}/${memoryId}`, {
+    method: "DELETE",
+    headers: await authHeader(),
+  });
   if (!res.ok) throw new Error(await res.text());
 }
 
 export async function getSuggestions(userId: string): Promise<Suggestion[]> {
-  const res = await fetch(`${BASE}/suggestions/${userId}`);
+  const res = await fetch(`${BASE}/suggestions/${userId}`, { headers: await authHeader() });
   if (!res.ok) return [];
   const data = await res.json();
   return data.suggestions ?? [];
 }
 
 export async function getDeadlines(userId: string): Promise<Deadline[]> {
-  const res = await fetch(`${BASE}/suggestions/${userId}/deadlines`);
+  const res = await fetch(`${BASE}/suggestions/${userId}/deadlines`, { headers: await authHeader() });
   if (!res.ok) return [];
   return res.json();
 }
 
 export async function getConversations(userId: string): Promise<Conversation[]> {
-  const res = await fetch(`${BASE}/conversations/${userId}`);
+  const res = await fetch(`${BASE}/conversations/${userId}`, { headers: await authHeader() });
   if (!res.ok) return [];
   return res.json();
 }
 
 export async function getConversationMessages(userId: string, conversationId: string): Promise<Message[]> {
-  const res = await fetch(`${BASE}/conversations/${userId}/${conversationId}/messages`);
+  const res = await fetch(`${BASE}/conversations/${userId}/${conversationId}/messages`, {
+    headers: await authHeader(),
+  });
   if (!res.ok) return [];
   return res.json();
 }
 
 export async function getProfile(userId: string): Promise<Profile | null> {
-  const res = await fetch(`${BASE}/profiles/${userId}`);
+  const res = await fetch(`${BASE}/profiles/${userId}`, { headers: await authHeader() });
   if (!res.ok) return null;
   return res.json();
 }
@@ -115,9 +144,39 @@ export async function getProfile(userId: string): Promise<Profile | null> {
 export async function updateProfile(userId: string, data: Partial<Omit<Profile, "id">>): Promise<Profile> {
   const res = await fetch(`${BASE}/profiles/${userId}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(await authHeader()) },
     body: JSON.stringify(data),
   });
   if (!res.ok) throw new Error(await res.text());
   return res.json();
+}
+
+export async function deleteAccount(userId: string): Promise<void> {
+  const res = await fetch(`${BASE}/profiles/${userId}`, {
+    method: "DELETE",
+    headers: await authHeader(),
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+export interface NotificationPrefs {
+  deadline_email: boolean;
+  reminder_days_before: number;
+}
+
+export async function getNotificationPrefs(userId: string): Promise<NotificationPrefs> {
+  const res = await fetch(`${BASE}/notifications/${userId}/preferences`, {
+    headers: await authHeader(),
+  });
+  if (!res.ok) return { deadline_email: false, reminder_days_before: 7 };
+  return res.json();
+}
+
+export async function saveNotificationPrefs(userId: string, prefs: NotificationPrefs): Promise<void> {
+  const res = await fetch(`${BASE}/notifications/${userId}/preferences`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(await authHeader()) },
+    body: JSON.stringify(prefs),
+  });
+  if (!res.ok) throw new Error(await res.text());
 }

@@ -1,48 +1,42 @@
 "use client";
 
-import { MessageSquare, Layers, Settings } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LayoutDashboard, MessageSquare, Layers, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+type TabId = "dashboard" | "chat" | "memory" | "settings";
+
 interface MobileBottomTabsProps {
-  activeTab?: "chat" | "memory" | "settings";
-  onChatClick: () => void;
-  onMemoryClick: () => void;
-  onSettingsClick: () => void;
+  activeTab?: TabId;
   language?: "fr" | "en";
+  // Optional overrides — used by ChatInterface for in-page state changes
+  onChatClick?: () => void;
+  onMemoryClick?: () => void;
+  onSettingsClick?: () => void;
 }
 
-const tabs = [
-  {
-    id: "chat" as const,
-    icon: MessageSquare,
-    labelFr: "Chat",
-    labelEn: "Chat",
-    onClick: (cbs: MobileBottomTabsProps) => cbs.onChatClick(),
-  },
-  {
-    id: "memory" as const,
-    icon: Layers,
-    labelFr: "Mémoire",
-    labelEn: "Memory",
-    onClick: (cbs: MobileBottomTabsProps) => cbs.onMemoryClick(),
-  },
-  {
-    id: "settings" as const,
-    icon: Settings,
-    labelFr: "Profil",
-    labelEn: "Profile",
-    onClick: (cbs: MobileBottomTabsProps) => cbs.onSettingsClick(),
-  },
+const TABS = [
+  { id: "dashboard" as TabId, href: "/dashboard", icon: LayoutDashboard, labelFr: "Tableau",  labelEn: "Home" },
+  { id: "chat"      as TabId, href: "/chat",      icon: MessageSquare,   labelFr: "Chat",     labelEn: "Chat" },
+  { id: "memory"    as TabId, href: "/memory",    icon: Layers,          labelFr: "Mémoire",  labelEn: "Memory" },
+  { id: "settings"  as TabId, href: "/settings",  icon: Settings,        labelFr: "Profil",   labelEn: "Profile" },
 ];
 
 export default function MobileBottomTabs({
   activeTab = "chat",
+  language = "fr",
   onChatClick,
   onMemoryClick,
   onSettingsClick,
-  language = "fr",
 }: MobileBottomTabsProps) {
-  const callbacks = { activeTab, onChatClick, onMemoryClick, onSettingsClick, language };
+  const router = useRouter();
+
+  function getHandler(tab: (typeof TABS)[number]) {
+    if (tab.id === "chat" && onChatClick) return onChatClick;
+    if (tab.id === "memory" && onMemoryClick) return onMemoryClick;
+    if (tab.id === "settings" && onSettingsClick) return onSettingsClick;
+    return () => router.push(tab.href);
+  }
 
   return (
     <nav
@@ -50,12 +44,13 @@ export default function MobileBottomTabs({
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       aria-label="Navigation principale"
     >
-      {tabs.map(({ id, icon: Icon, labelFr, labelEn, onClick }) => {
+      {TABS.map((tab) => {
+        const { id, icon: Icon, labelFr, labelEn } = tab;
         const active = activeTab === id;
         return (
           <button
             key={id}
-            onClick={() => onClick(callbacks)}
+            onClick={getHandler(tab)}
             aria-pressed={active}
             className={cn(
               "flex-1 flex flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-medium transition-colors min-h-[56px]",

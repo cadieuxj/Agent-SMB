@@ -1,15 +1,15 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const PROTECTED = ["/chat", "/dashboard", "/memory", "/settings", "/onboarding"];
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return supabaseResponse;
-  }
+  if (!supabaseUrl || !supabaseAnonKey) return supabaseResponse;
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -24,22 +24,24 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  // getSession reads from the cookie — no network call, no fetch errors
-  const { data: { session } } = await supabase.auth.getSession();
+  // getUser() revalidates the JWT server-side — never trusts the cookie alone
+  const { data: { user } } = await supabase.auth.getUser();
+  const path = request.nextUrl.pathname;
 
-  // Redirect unauthenticated users away from /chat
-  if (!session && request.nextUrl.pathname.startsWith("/chat")) {
+  // Redirect unauthenticated users away from protected routes
+  const isProtected = PROTECTED.some((p) => path.startsWith(p));
+  if (!user && isProtected) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  // Redirect authenticated users away from login page
-  if (session && request.nextUrl.pathname === "/") {
-    return NextResponse.redirect(new URL("/chat", request.url));
+  // Redirect authenticated users away from login
+  if (user && path === "/") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return supabaseResponse;
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|auth).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|auth|privacy).*)"],
 };

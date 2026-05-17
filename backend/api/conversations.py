@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
+from core.auth import get_current_user_id, require_own_user
 from core.supabase_client import get_supabase
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
@@ -21,7 +22,12 @@ class MessageItem(BaseModel):
 
 
 @router.get("/{user_id}", response_model=list[ConversationItem])
-async def list_conversations(user_id: str, limit: int = 20):
+async def list_conversations(
+    user_id: str,
+    limit: int = Query(default=20, le=100),
+    token_user_id: str = Depends(get_current_user_id),
+):
+    require_own_user(user_id, token_user_id)
     db = get_supabase()
     result = (
         db.table("conversations")
@@ -38,7 +44,12 @@ async def list_conversations(user_id: str, limit: int = 20):
 
 
 @router.get("/{user_id}/{conversation_id}/messages", response_model=list[MessageItem])
-async def get_messages(user_id: str, conversation_id: str):
+async def get_messages(
+    user_id: str,
+    conversation_id: str,
+    token_user_id: str = Depends(get_current_user_id),
+):
+    require_own_user(user_id, token_user_id)
     db = get_supabase()
     result = (
         db.table("messages")

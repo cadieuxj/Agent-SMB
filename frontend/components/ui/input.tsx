@@ -31,7 +31,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             aria-invalid={!!error}
             className={cn(
               "w-full bg-surface-overlay border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-500 transition-colors",
-              "focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent",
+              "focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand/60",
               error && "border-danger focus:ring-danger",
               leadingIcon && "pl-10",
               className

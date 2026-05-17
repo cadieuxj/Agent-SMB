@@ -1,6 +1,8 @@
 "use client";
 
-import { Brain, Plus, LogOut, Settings, Layers, MessageSquare } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Brain, Plus, LogOut, Settings, Layers, MessageSquare, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { type Profile, type Conversation } from "@/lib/api";
@@ -38,6 +40,8 @@ export default function AppSidebar({
   onOpenProfile,
   onSignOut,
 }: AppSidebarProps) {
+  const pathname = usePathname();
+
   return (
     <aside
       className={cn(
@@ -46,10 +50,10 @@ export default function AppSidebar({
       )}
     >
       {/* Header */}
-      <div className="p-4 border-b border-gray-800">
+      <div className="p-4 border-b border-gray-800" style={{ background: "linear-gradient(180deg, rgba(99,102,241,0.06) 0%, transparent 100%)" }}>
         <div className="flex items-center gap-2.5 mb-1">
-          <div className="w-7 h-7 rounded-lg bg-brand/20 flex items-center justify-center shrink-0">
-            <Brain size={16} className="text-brand-text" />
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)", boxShadow: "0 2px 8px rgba(99,102,241,0.4)" }}>
+            <Brain size={16} className="text-white" />
           </div>
           <span className="font-bold text-white text-sm tracking-tight">Agent SMB</span>
         </div>
@@ -112,31 +116,31 @@ export default function AppSidebar({
 
       {/* Bottom actions */}
       <div className="p-3 border-t border-gray-800 space-y-0.5">
-        <button
-          onClick={onOpenProfile}
-          className="w-full flex items-center gap-2 text-xs text-gray-400 hover:text-gray-200 px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-        >
-          <Settings size={14} />
-          {language === "fr" ? "Mon profil" : "My profile"}
-        </button>
-        <button
-          onClick={onToggleMemory}
-          className={cn(
-            "w-full flex items-center gap-2 text-xs px-3 py-2 rounded-lg transition-colors",
-            showMemory
-              ? "bg-surface-overlay text-white"
-              : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
-          )}
-          aria-pressed={showMemory}
-        >
-          <Layers size={14} />
-          {showMemory
-            ? (language === "fr" ? "Masquer la mémoire" : "Hide memory")
-            : (language === "fr" ? "Voir la mémoire" : "View memory")}
-        </button>
+        {[
+          { href: "/dashboard", icon: LayoutDashboard, labelFr: "Tableau de bord", labelEn: "Dashboard" },
+          { href: "/memory",    icon: Layers,          labelFr: "Mémoire",          labelEn: "Memory" },
+          { href: "/settings",  icon: Settings,        labelFr: "Mon profil",       labelEn: "My profile" },
+        ].map(({ href, icon: Icon, labelFr, labelEn }) => {
+          const active = pathname === href;
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "w-full flex items-center gap-2 text-xs px-3 py-2 rounded-lg transition-colors",
+                active
+                  ? "bg-brand/10 text-brand-text font-medium"
+                  : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
+              )}
+            >
+              <Icon size={14} className={active ? "text-brand-text" : ""} />
+              {language === "fr" ? labelFr : labelEn}
+            </Link>
+          );
+        })}
         <button
           onClick={onSignOut}
-          className="w-full flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+          className="w-full flex items-center gap-2 text-xs text-gray-500 hover:text-gray-300 px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors mt-1"
         >
           <LogOut size={14} />
           {language === "fr" ? "Déconnexion" : "Sign out"}

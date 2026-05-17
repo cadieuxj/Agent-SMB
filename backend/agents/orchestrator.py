@@ -71,18 +71,13 @@ def route(
     message: str,
     conversation_history: list[dict],
     language: str = "fr",
+    forced_agent: str | None = None,
 ) -> dict:
     """
     Classify the user message and route to the appropriate agent.
-
-    Returns:
-        {
-            "reply": str,
-            "agent": str,   # which agent handled it
-            "intent": str,  # classified intent
-        }
+    If forced_agent is set (from expert mode), skip classification.
     """
-    intent = _classify(message)
+    intent = forced_agent if forced_agent in ("tax", "cash_flow", "general") else _classify(message)
 
     if intent == "tax":
         reply = tax_compliance.chat(

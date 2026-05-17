@@ -1,10 +1,12 @@
-from fastapi import APIRouter, HTTPException
+from datetime import date
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
+from core.auth import get_current_user_id, require_own_user
 from core.supabase_client import get_supabase
 from services.suggestions import run_for_user
 from services.tax_calendar import get_upcoming_deadlines
-from datetime import date
 
 router = APIRouter(prefix="/suggestions", tags=["suggestions"])
 
@@ -31,8 +33,12 @@ class DeadlineItem(BaseModel):
 
 
 @router.get("/{user_id}", response_model=SuggestionsResponse)
-async def get_suggestions(user_id: str, unshown_only: bool = True):
-    """Return stored suggestions for a user. Marks returned ones as shown."""
+async def get_suggestions(
+    user_id: str,
+    unshown_only: bool = True,
+    token_user_id: str = Depends(get_current_user_id),
+):
+    require_own_user(user_id, token_user_id)
     db = get_supabase()
 
     query = db.table("suggestions").select("*").eq("user_id", user_id)
@@ -50,7 +56,6 @@ async def get_suggestions(user_id: str, unshown_only: bool = True):
         for r in result.data
     ]
 
-    # Mark as shown
     if items and unshown_only:
         ids = [i.id for i in items]
         db.table("suggestions").update({"shown": True}).in_("id", ids).execute()
@@ -59,26 +64,32 @@ async def get_suggestions(user_id: str, unshown_only: bool = True):
 
 
 @router.post("/{user_id}/generate")
-async def generate_suggestions(user_id: str, language: str = "fr", province: str = "QC"):
-    """Manually trigger suggestion generation for a user (for testing)."""
+async def generate_suggestions(
+    user_id: str,
+    language: str = "fr",
+    province: str = "QC",
+    token_user_id: str = Depends(get_current_user_id),
+):
+    require_own_user(user_id, token_user_id)
     try:
         count = run_for_user(user_id=user_id, language=language, province=province)
         return {"generated": count, "user_id": user_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to generate suggestions")
 
 
 @router.get("/{user_id}/deadlines", response_model=list[DeadlineItem])
 async def get_deadlines(
     user_id: str,
-    horizon_days: int = 60,
+    horizon_days: int = Query(default=60, le=365),
     province: str = "QC",
     filing_type: str = "quarterly_filer",
+    token_user_id: str = Depends(get_current_user_id),
 ):
-    """Return upcoming CRA/RQ deadlines for a user's province and filing type."""
+    require_own_user(user_id, token_user_id)
     deadlines = get_upcoming_deadlines(
         today=date.today(),
-        horizon_days=horizon_days,
+        horizon_days=min(horizon_days, 365),
         province=province,
         filing_type=filing_type,
     )
