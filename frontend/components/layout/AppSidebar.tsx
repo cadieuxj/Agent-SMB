@@ -117,9 +117,9 @@ export default function AppSidebar({
       {/* Bottom actions */}
       <div className="p-3 border-t border-gray-800 space-y-0.5">
         {[
-          { href: "/dashboard", icon: LayoutDashboard, labelFr: "Tableau de bord", labelEn: "Dashboard" },
-          { href: "/memory",    icon: Layers,          labelFr: "Mémoire",          labelEn: "Memory" },
-          { href: "/settings",  icon: Settings,        labelFr: "Mon profil",       labelEn: "My profile" },
+          { href: "/dashboard", icon: LayoutDashboard, labelFr: "Accueil",   labelEn: "Home" },
+          { href: "/memory",    icon: Layers,          labelFr: "Documents", labelEn: "Documents" },
+          { href: "/settings",  icon: Settings,        labelFr: "Compte",    labelEn: "Account" },
         ].map(({ href, icon: Icon, labelFr, labelEn }) => {
           const active = pathname === href;
           return (

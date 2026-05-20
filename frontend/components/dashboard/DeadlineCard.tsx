@@ -28,7 +28,7 @@ export default function DeadlineCard({ deadlines, language = "fr", userId }: Dea
   const t = language === "en";
   const upcoming = deadlines.slice(0, 3);
   const [showModal, setShowModal] = useState(false);
-  const [prefs, setPrefs] = useState<NotificationPrefs>({ deadline_email: false, reminder_days_before: 7 });
+  const [prefs, setPrefs] = useState<NotificationPrefs>({ deadline_email: false, reminder_days_before: 7, monthly_digest_email: false });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -111,7 +111,7 @@ export default function DeadlineCard({ deadlines, language = "fr", userId }: Dea
           className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
         >
-          <div className="bg-surface-raised border border-gray-700 rounded-2xl w-full max-w-sm p-6 space-y-5 relative">
+          <div className="dark-landing bg-surface-raised border border-gray-700 rounded-2xl w-full max-w-sm p-6 space-y-5 relative">
             <button
               onClick={() => setShowModal(false)}
               className="absolute top-4 right-4 text-gray-500 hover:text-gray-300"

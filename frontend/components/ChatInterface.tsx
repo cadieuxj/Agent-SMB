@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Menu, Send, MessageSquare, Copy, Check, Zap, X, LayoutDashboard, ChevronDown, ChevronUp, Download, SlidersHorizontal } from "lucide-react";
+import { Menu, Send, MessageSquare, Copy, Check, Zap, X, LayoutDashboard, ChevronDown, ChevronUp, Download, SlidersHorizontal, Mail } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { createClient } from "@/lib/supabase/client";
@@ -10,6 +10,7 @@ import {
   getConversations,
   getConversationMessages,
   getProfile,
+  updateProfile,
   type ChatResponse,
   type Conversation,
   type Message,
@@ -94,24 +95,39 @@ export default function ChatInterface({
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [expertMode, setExpertMode] = useState(false);
   const [forcedAgent, setForcedAgent] = useState<"general" | "tax" | "cash_flow">("general");
+  const [showAdvisorTooltip, setShowAdvisorTooltip] = useState(false);
+  const [showMoreExports, setShowMoreExports] = useState(false);
   const [msgCount, setMsgCount] = useState(0);
   const [isPro, setIsPro] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [dismissedPaywallToast, setDismissedPaywallToast] = useState(false);
+  const [accountantEmail, setAccountantEmail] = useState("");
+  const [showEmailModal, setShowEmailModal] = useState(false);
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
+    // Apply browser language as fallback before profile arrives (client-side only)
+    const browserLang = navigator.language?.startsWith("fr") ? "fr" : "en";
+    setLanguage(browserLang);
+
     getProfile(userId).then((p) => {
       setProfile(p);
       setProfileLoading(false);
       if (!p || !p.business_name) setShowProfileSetup(true);
+      // Profile language always overrides browser default
       if (p?.language) setLanguage(p.language as "fr" | "en");
+      if (p?.accountant_email) setAccountantEmail(p.accountant_email);
     });
     loadConversations();
     setMsgCount(parseInt(localStorage.getItem(`agentsmb_msgs_${userId}`) ?? "0", 10));
     setIsPro(localStorage.getItem(`agentsmb_pro_${userId}`) === "true");
+    // Show advisor tooltip once on first chat visit
+    if (!localStorage.getItem("agentsmb_advisor_tip_seen")) {
+      setShowAdvisorTooltip(true);
+    }
+    // accountant_email is loaded from profile below
   }, [userId]);
 
   // Auto-send initial message from onboarding activation
@@ -250,6 +266,174 @@ export default function ChatInterface({
     }
   }
 
+  /** Convert markdown to clean HTML for PDF rendering. */
+  function mdToHtml(md: string): string {
+    let html = md
+      // Escape HTML entities first
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      // Headings
+      .replace(/^### (.+)$/gm, "<h3>$1</h3>")
+      .replace(/^## (.+)$/gm, "<h2>$1</h2>")
+      .replace(/^# (.+)$/gm, "<h1>$1</h1>")
+      // Bold + italic
+      .replace(/\*\*\*(.+?)\*\*\*/g, "<strong><em>$1</em></strong>")
+      .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+      .replace(/\*(.+?)\*/g, "<em>$1</em>")
+      // Inline code
+      .replace(/`([^`]+)`/g, "<code>$1</code>")
+      // Horizontal rule
+      .replace(/^---$/gm, "<hr>")
+      // Unordered lists
+      .replace(/^[\-\*] (.+)$/gm, "<li>$1</li>")
+      // Ordered lists
+      .replace(/^\d+\. (.+)$/gm, "<li>$1</li>");
+
+    // Wrap consecutive <li> in <ul>
+    html = html.replace(/((<li>.*<\/li>\n?)+)/g, "<ul>$1</ul>");
+
+    // Tables: | col | col | → <table>
+    html = html.replace(/^\|(.+)\|$/gm, (line) => {
+      const cells = line.split("|").slice(1, -1).map((c) => c.trim());
+      return "<tr>" + cells.map((c) => `<td>${c}</td>`).join("") + "</tr>";
+    });
+    // Remove separator rows (| --- | --- |)
+    html = html.replace(/<tr>(<td>[-: ]+<\/td>)+<\/tr>/g, "");
+    // Wrap first <tr> of each table block as <thead>
+    html = html.replace(/((<tr>.*<\/tr>\n?)+)/g, (block) => {
+      const rows = block.trim().split("\n");
+      if (rows.length > 1) {
+        return `<table><thead>${rows[0]}</thead><tbody>${rows.slice(1).join("")}</tbody></table>`;
+      }
+      return `<table><tbody>${block}</tbody></table>`;
+    });
+
+    // Double newlines → paragraph breaks
+    html = html
+      .split(/\n{2,}/)
+      .map((chunk) => {
+        chunk = chunk.trim();
+        if (!chunk) return "";
+        if (/^<(h[1-3]|ul|ol|table|hr|li)/.test(chunk)) return chunk;
+        return `<p>${chunk.replace(/\n/g, "<br>")}</p>`;
+      })
+      .join("\n");
+
+    return html;
+  }
+
+  function handleAccountantPdf() {
+    if (!messages.length) return;
+    const dateStr = new Date().toLocaleDateString(language === "fr" ? "fr-CA" : "en-CA");
+    const bizName = profile?.business_name ?? userEmail;
+    const province = profile?.province ?? "QC";
+
+    // Build clean Q&A pairs (pair consecutive user+assistant turns)
+    const pairs: { question: string; answer: string; agent: string | null }[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      if (messages[i].role === "user") {
+        const next = messages[i + 1];
+        if (next?.role === "assistant") {
+          pairs.push({ question: messages[i].content, answer: next.content, agent: next.agent_used });
+          i++;
+        }
+      }
+    }
+
+    const qaPairs = pairs.map((p, idx) => {
+      const agentLabel = p.agent === "tax"
+        ? (language === "fr" ? "Agent Fiscalité" : "Tax Agent")
+        : p.agent === "cash_flow"
+        ? (language === "fr" ? "Agent Trésorerie" : "Cash Flow Agent")
+        : (language === "fr" ? "Conseiller général" : "General Advisor");
+      return `
+        <div style="margin:20px 0;padding:16px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0;">
+          <p style="margin:0 0 6px;font-size:10px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:0.05em;">
+            Q${idx + 1} · ${language === "fr" ? "Question" : "Question"}
+          </p>
+          <p style="margin:0 0 14px;font-size:13px;color:#0f172a;font-weight:500;">${mdToHtml(p.question)}</p>
+          <p style="margin:0 0 6px;font-size:10px;font-weight:700;color:#10b981;text-transform:uppercase;letter-spacing:0.05em;">
+            ${language === "fr" ? "Réponse" : "Answer"} · ${agentLabel}
+          </p>
+          <div style="font-size:13px;color:#334155;line-height:1.7;">${mdToHtml(p.answer)}</div>
+        </div>`;
+    }).join("");
+
+    const html = `<!DOCTYPE html><html lang="${language}"><head><meta charset="UTF-8">
+      <title>${language === "fr" ? "Résumé comptable" : "Accountant Summary"} — Agent SMB</title>
+      <style>
+        body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:740px;margin:40px auto;padding:0 24px;color:#0f172a;}
+        @media print{body{margin:0;}}
+        h1{font-size:18px;font-weight:700;color:#0f172a;margin:16px 0 6px;}
+        h2{font-size:15px;font-weight:700;color:#1e293b;margin:14px 0 4px;}
+        h3{font-size:13px;font-weight:700;color:#334155;margin:12px 0 4px;}
+        p{margin:0 0 8px;line-height:1.6;}
+        strong{font-weight:700;color:#0f172a;}
+        em{font-style:italic;}
+        code{font-family:monospace;font-size:12px;background:#eef2ff;color:#4338ca;padding:1px 5px;border-radius:4px;}
+        ul,ol{margin:6px 0 8px;padding-left:20px;}
+        li{margin:2px 0;line-height:1.5;}
+        table{width:100%;border-collapse:collapse;margin:10px 0;font-size:12px;}
+        td,th{border:1px solid #e2e8f0;padding:6px 10px;text-align:left;}
+        thead td,th{background:#f1f5f9;font-weight:600;color:#0f172a;}
+        hr{border:none;border-top:1px solid #e2e8f0;margin:12px 0;}
+      </style></head>
+      <body>
+        <!-- Header -->
+        <div style="display:flex;align-items:center;gap:14px;padding-bottom:20px;border-bottom:3px solid #6366f1;margin-bottom:24px;">
+          <div style="background:linear-gradient(135deg,#6366f1,#4f46e5);width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+            <span style="color:white;font-weight:800;font-size:16px;">A</span></div>
+          <div>
+            <h1 style="margin:0;font-size:20px;font-weight:700;color:#0f172a;">Agent SMB</h1>
+            <p style="margin:2px 0 0;font-size:12px;color:#64748b;">
+              ${language === "fr" ? "Résumé comptable" : "Accountant Summary"} · ${bizName} · ${province} · ${dateStr}
+            </p>
+          </div>
+        </div>
+        <!-- Q&A -->
+        ${qaPairs || `<p style="color:#64748b;">${language === "fr" ? "Aucune question-réponse dans cette conversation." : "No Q&A pairs in this conversation."}</p>`}
+        <!-- Footer -->
+        <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;">
+          <p style="margin:0;">
+            ${language === "fr"
+              ? "Généré par Agent SMB (CadieuxAI Inc.) · Données hébergées au Canada · Vos données ne sont pas utilisées pour entraîner l'IA."
+              : "Generated by Agent SMB (CadieuxAI Inc.) · Data hosted in Canada · Your data is never used to train AI."}
+          </p>
+          <p style="margin:4px 0 0;">
+            ${language === "fr"
+              ? "Ce document est à titre informatif. Consultez un comptable ou un fiscaliste pour votre situation spécifique."
+              : "This document is for informational purposes. Consult a CPA or tax professional for your specific situation."}
+          </p>
+        </div>
+      </body></html>`;
+
+    const win = window.open("", "_blank");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+      setTimeout(() => win.print(), 500);
+    }
+  }
+
+  function handleCopyToClipboard() {
+    if (!messages.length) return;
+    const bizName = profile?.business_name ?? userEmail;
+    const dateStr = new Date().toLocaleDateString(language === "fr" ? "fr-CA" : "en-CA");
+    const text = [
+      `Agent SMB — ${bizName} — ${dateStr}`,
+      "",
+      ...messages.map((m) => {
+        const role = m.role === "user"
+          ? (language === "fr" ? "Vous" : "You")
+          : `Agent SMB${m.agent_used ? ` (${m.agent_used})` : ""}`;
+        return `${role}:\n${m.content}`;
+      }),
+    ].join("\n\n");
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+
   function handleExport(format: "md" | "pdf" = "md") {
     if (!messages.length) return;
     const dateStr = new Date().toLocaleDateString(language === "fr" ? "fr-CA" : "en-CA");
@@ -264,13 +448,23 @@ export default function ChatInterface({
         const bg = isUser ? "#eef2ff" : "#f8fafc";
         const border = isUser ? "#6366f1" : "#e2e8f0";
         return `<div style="margin:12px 0;padding:12px 16px;background:${bg};border-left:3px solid ${border};border-radius:4px;">
-          <p style="margin:0 0 4px;font-size:11px;font-weight:600;color:#64748b;">${roleLabel}</p>
-          <p style="margin:0;font-size:13px;color:#0f172a;white-space:pre-wrap;">${m.content.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p>
+          <p style="margin:0 0 6px;font-size:11px;font-weight:600;color:#64748b;">${roleLabel}</p>
+          <div style="font-size:13px;color:#0f172a;line-height:1.7;">${mdToHtml(m.content)}</div>
         </div>`;
       }).join("");
       const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Agent SMB</title>
-        <style>body{font-family:-apple-system,sans-serif;max-width:720px;margin:40px auto;padding:0 24px;}
-        @media print{body{margin:0;}}</style></head>
+        <style>
+          body{font-family:-apple-system,sans-serif;max-width:720px;margin:40px auto;padding:0 24px;}
+          @media print{body{margin:0;}}
+          h1{font-size:17px;font-weight:700;margin:14px 0 4px;color:#0f172a;}
+          h2{font-size:14px;font-weight:700;margin:12px 0 4px;color:#1e293b;}
+          h3{font-size:13px;font-weight:600;margin:10px 0 4px;color:#334155;}
+          p{margin:0 0 8px;} strong{font-weight:700;} em{font-style:italic;}
+          code{font-family:monospace;font-size:11px;background:#eef2ff;color:#4338ca;padding:1px 4px;border-radius:3px;}
+          ul,ol{margin:4px 0 8px;padding-left:18px;} li{margin:2px 0;}
+          table{width:100%;border-collapse:collapse;margin:8px 0;font-size:12px;}
+          td{border:1px solid #e2e8f0;padding:5px 8px;} hr{border:none;border-top:1px solid #e2e8f0;margin:10px 0;}
+        </style></head>
         <body>
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;padding-bottom:16px;border-bottom:2px solid #e2e8f0;">
             <div style="background:linear-gradient(135deg,#6366f1,#4f46e5);width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;">
@@ -379,6 +573,70 @@ export default function ChatInterface({
         />
       )}
 
+      {/* Accountant email modal — all colours via inline style to bypass light-mode CSS cascade */}
+      {showEmailModal && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowEmailModal(false); }}
+        >
+          <div
+            className="rounded-2xl w-full max-w-sm p-6 space-y-4 relative border"
+            style={{ background: "#111827", borderColor: "#374151" }}
+          >
+            <button
+              onClick={() => setShowEmailModal(false)}
+              className="absolute top-4 right-4 transition-colors"
+              style={{ color: "#6b7280" }}
+            >
+              <X size={16} />
+            </button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(99,102,241,0.15)" }}>
+                <Mail size={18} style={{ color: "#818cf8" }} />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm" style={{ color: "#ffffff" }}>
+                  {language === "fr" ? "Adresse de votre comptable" : "Your accountant's email"}
+                </h3>
+                <p className="text-xs mt-0.5" style={{ color: "#9ca3af" }}>
+                  {language === "fr" ? "Sauvegardée pour les prochains envois" : "Saved for future sessions"}
+                </p>
+              </div>
+            </div>
+            <input
+              type="email"
+              autoFocus
+              value={accountantEmail}
+              onChange={(e) => setAccountantEmail(e.target.value)}
+              placeholder={language === "fr" ? "comptable@cabinet.com" : "accountant@firm.com"}
+              className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+              style={{
+                background: "#1e2433",
+                color: "#f1f5f9",
+                border: "1px solid #374151",
+              }}
+            />
+            <button
+              onClick={async () => {
+                if (!accountantEmail) return;
+                await updateProfile(userId, { accountant_email: accountantEmail }).catch(() => {});
+                setShowEmailModal(false);
+                const bizName = profile?.business_name ?? userEmail;
+                const date = new Date().toLocaleDateString(language === "fr" ? "fr-CA" : "en-CA");
+                const subject = encodeURIComponent(language === "fr" ? `Résumé fiscal — ${bizName} — ${date}` : `Tax summary — ${bizName} — ${date}`);
+                const body = encodeURIComponent(messages.map((m) => `${m.role === "user" ? (language === "fr" ? "Vous" : "You") : "Agent SMB"}: ${m.content}`).join("\n\n"));
+                window.open(`mailto:${accountantEmail}?subject=${subject}&body=${body}`, "_blank");
+              }}
+              disabled={!accountantEmail}
+              className="w-full py-2.5 rounded-xl text-sm font-semibold transition-opacity disabled:opacity-40"
+              style={{ background: "linear-gradient(135deg,#6366f1,#4f46e5)", color: "#ffffff" }}
+            >
+              {language === "fr" ? "Sauvegarder et envoyer" : "Save & send"}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex h-screen overflow-hidden">
         {/* Desktop sidebar */}
         <AppSidebar className="hidden lg:flex" {...sidebarProps} />
@@ -390,57 +648,152 @@ export default function ChatInterface({
 
         {/* Main chat area */}
         <div className="flex-1 flex flex-col min-w-0 pb-14 lg:pb-0">
-          {/* Desktop header — expert mode + export */}
+          {/* Desktop header — expert mode + counter + export */}
           <div className="hidden lg:flex items-center justify-between h-10 px-4 border-b border-gray-800 shrink-0 bg-surface-raised">
-            {/* Expert mode toggle */}
-            <button
-              onClick={() => setExpertMode(v => !v)}
-              className={cn(
-                "flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg transition-colors",
-                expertMode ? "text-brand-text bg-brand/10" : "text-gray-500 hover:text-gray-300 hover:bg-surface-overlay"
+            {/* Left: advisor selector (renamed from "Expert mode") */}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setExpertMode(v => !v);
+                  if (showAdvisorTooltip) {
+                    setShowAdvisorTooltip(false);
+                    localStorage.setItem("agentsmb_advisor_tip_seen", "1");
+                  }
+                }}
+                className={cn(
+                  "flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg transition-colors",
+                  expertMode ? "text-brand-text bg-brand/10" : "text-gray-500 hover:text-gray-300 hover:bg-surface-overlay"
+                )}
+              >
+                <SlidersHorizontal size={13} />
+                {language === "fr" ? "Choisir un conseiller" : "Choose advisor"}
+              </button>
+              {/* First-visit coach mark tooltip */}
+              {showAdvisorTooltip && (
+                <div className="absolute top-8 left-0 z-50 w-64 bg-surface-raised border border-brand/30 rounded-xl px-4 py-3 shadow-lg">
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    {language === "fr"
+                      ? "L'IA choisit automatiquement le bon conseiller pour vous. Cliquez ici pour choisir vous-même."
+                      : "AI picks the right advisor automatically. Click here to choose manually."}
+                  </p>
+                  <button
+                    onClick={() => {
+                      setShowAdvisorTooltip(false);
+                      localStorage.setItem("agentsmb_advisor_tip_seen", "1");
+                    }}
+                    className="mt-2 text-[10px] text-brand-text hover:text-brand transition-colors"
+                  >
+                    {language === "fr" ? "Compris" : "Got it"}
+                  </button>
+                </div>
               )}
-            >
-              <SlidersHorizontal size={13} />
-              {language === "fr" ? "Mode expert" : "Expert mode"}
-            </button>
+            </div>
 
-            {/* Export buttons */}
-            {messages.length > 0 && (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleExport("md")}
-                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-1 rounded-lg hover:bg-surface-overlay"
+            {/* Right: message counter + export + email */}
+            <div className="flex items-center gap-2">
+              {/* Persistent message counter */}
+              {!isPro && (
+                <span
+                  title={language === "fr"
+                    ? "Se réinitialise le 1er du mois. Passez à Pro pour illimité."
+                    : "Resets the 1st of each month. Upgrade for unlimited."}
+                  className={cn(
+                    "text-[10px] font-medium px-2 py-0.5 rounded-full border cursor-default",
+                    msgCount / FREE_LIMIT >= 0.95
+                      ? "text-danger border-danger/30 bg-danger/5"
+                      : msgCount / FREE_LIMIT >= 0.8
+                      ? "text-warning border-warning/30 bg-warning/5"
+                      : "text-gray-500 border-gray-700 bg-surface-overlay"
+                  )}
                 >
-                  <Download size={13} /> .md
-                </button>
-                <button
-                  onClick={() => handleExport("pdf")}
-                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-1 rounded-lg hover:bg-surface-overlay"
-                >
-                  <Download size={13} /> PDF
-                </button>
-              </div>
-            )}
+                  {msgCount} / {FREE_LIMIT} {language === "fr" ? "msg" : "msg"}
+                </span>
+              )}
+
+              {messages.length > 0 && (
+                <div className="flex items-center gap-1.5 relative">
+                  {/* Primary CTA — single accountant send button */}
+                  <button
+                    onClick={() => {
+                      if (!accountantEmail) { setShowEmailModal(true); return; }
+                      handleAccountantPdf();
+                    }}
+                    className="flex items-center gap-1.5 text-xs font-semibold text-warning border border-warning/30 bg-warning/5 hover:bg-warning/10 transition-colors px-3 py-1.5 rounded-lg"
+                  >
+                    <Mail size={13} />
+                    {language === "en" ? "Send to Accountant" : "Envoyer au comptable"}
+                  </button>
+
+                  {/* Clipboard copy — always visible fallback */}
+                  <button
+                    onClick={handleCopyToClipboard}
+                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-1 rounded-lg hover:bg-surface-overlay"
+                    title={language === "en" ? "Copy conversation" : "Copier la conversation"}
+                  >
+                    <Copy size={13} />
+                  </button>
+
+                  {/* More options dropdown */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowMoreExports((v) => !v)}
+                      className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300 transition-colors px-2 py-1 rounded-lg hover:bg-surface-overlay"
+                      title={language === "en" ? "More export options" : "Plus d'options"}
+                    >
+                      <ChevronDown size={13} />
+                    </button>
+                    {showMoreExports && (
+                      <div
+                        className="absolute right-0 top-8 z-50 bg-surface-raised border border-gray-700 rounded-xl shadow-lg py-1 min-w-[140px]"
+                        onMouseLeave={() => setShowMoreExports(false)}
+                      >
+                        <button onClick={() => { handleExport("md"); setShowMoreExports(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-300 hover:text-white hover:bg-surface-overlay transition-colors">
+                          <Download size={12} /> Markdown (.md)
+                        </button>
+                        <button onClick={() => { handleExport("pdf"); setShowMoreExports(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-300 hover:text-white hover:bg-surface-overlay transition-colors">
+                          <Download size={12} /> {language === "en" ? "Full PDF" : "PDF complet"}
+                        </button>
+                        <button onClick={() => { handleAccountantPdf(); setShowMoreExports(false); }} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-gray-300 hover:text-white hover:bg-surface-overlay transition-colors">
+                          <Download size={12} /> {language === "en" ? "Accountant PDF" : "PDF comptable"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Mobile header */}
-          <div className="flex lg:hidden items-center h-12 px-4 border-b border-gray-800 shrink-0 bg-surface-raised">
+          <div className="flex lg:hidden items-center h-12 px-4 border-b border-gray-800 shrink-0 bg-surface-raised gap-2">
             <button
               onClick={() => setDrawerOpen(true)}
-              className="p-1 text-gray-400 hover:text-gray-200 transition-colors"
+              className="p-1 text-gray-400 hover:text-gray-200 transition-colors shrink-0"
               aria-label="Ouvrir le menu"
             >
               <Menu size={20} />
             </button>
-            <span className="ml-3 font-semibold text-sm text-white truncate flex-1">
+            <span className="ml-1 font-semibold text-sm text-white truncate flex-1">
               {profile?.business_name ?? "Agent SMB"}
             </span>
+            {!isPro && (
+              <span className={cn(
+                "text-[10px] font-medium px-1.5 py-0.5 rounded-full border shrink-0",
+                msgCount / FREE_LIMIT >= 0.95
+                  ? "text-danger border-danger/30"
+                  : msgCount / FREE_LIMIT >= 0.8
+                  ? "text-warning border-warning/30"
+                  : "text-gray-500 border-gray-700"
+              )}>
+                {msgCount}/{FREE_LIMIT}
+              </span>
+            )}
             <a
               href="/dashboard"
               className="text-xs text-gray-500 hover:text-brand-text transition-colors flex items-center gap-1 shrink-0"
             >
               <LayoutDashboard size={13} />
-              {language === "fr" ? "Tableau" : "Home"}
+              {language === "fr" ? "Accueil" : "Home"}
             </a>
           </div>
 
@@ -475,7 +828,7 @@ export default function ChatInterface({
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={cn("flex", msg.role === "user" ? "justify-end" : "justify-start")}
+                className={cn("flex flex-col", msg.role === "user" ? "items-end" : "items-start")}
               >
                 <div
                   className={cn(
@@ -572,7 +925,30 @@ export default function ChatInterface({
                     msg.content
                   )}
                 </div>
-              </div>
+              {/* Handled-by badge — below bubble, inside flex-col outer wrapper */}
+              {msg.role === "assistant" && (() => {
+                const agentKey = msg.agent_used ?? "general";
+                const cfg: Record<string, { label: string; labelEn: string; bg: string }> = {
+                  tax:       { label: "Agent Fiscal",       labelEn: "Tax Agent",       bg: "#7c3aed" },
+                  cash_flow: { label: "Agent Trésorerie",   labelEn: "Cash Flow Agent", bg: "#0284c7" },
+                  general:   { label: "Conseiller général", labelEn: "General Advisor", bg: "#475569" },
+                };
+                const c = cfg[agentKey] ?? cfg.general;
+                return (
+                  <div className="flex items-center gap-1.5 ml-1 mt-0.5">
+                    <span
+                      className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      style={{ background: c.bg, color: "#fff" }}
+                    >
+                      {language === "en" ? c.labelEn : c.label}
+                    </span>
+                    <span className="text-[10px] text-gray-600">
+                      {language === "en" ? "· auto-routed" : "· routage automatique"}
+                    </span>
+                  </div>
+                );
+              })()}
+            </div>
             ))}
 
             {loading && (
@@ -660,7 +1036,7 @@ export default function ChatInterface({
                 className="inline-flex items-center gap-2 bg-brand hover:bg-brand-dark text-white text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors"
               >
                 <Zap size={14} />
-                {language === "fr" ? "Passer à Pro — 29 $/mois" : "Upgrade to Pro — $29/mo"}
+                {language === "fr" ? "Passer à Pro — 49 $/mois CAD" : "Upgrade to Pro — $49 CAD/mo"}
               </button>
               <p className="text-xs text-gray-600">
                 {language === "fr" ? "Annulez en tout temps" : "Cancel anytime"}
@@ -668,6 +1044,34 @@ export default function ChatInterface({
             </div>
           ) : (
           <div className="border-t border-gray-800 p-4 shrink-0">
+            {/* Industry context chips */}
+            <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-thin">
+              {([
+                { labelFr: "🍽️ Restaurant", labelEn: "🍽️ Restaurant",
+                  msgFr: "Pour cette conversation, je gère un restaurant au Québec. J'ai des questions sur la TVQ sur les repas, les obligations de déclarer les pourboires de mes employés (Loi sur les pourboires RQ), et les déductions admissibles (alimentation vs fournitures).",
+                  msgEn: "For this conversation, I run a restaurant. I have questions about GST/HST on meals, employee tip reporting requirements, and eligible deductions (food vs. supplies)." },
+                { labelFr: "💅 Salon/Spa",  labelEn: "💅 Salon/Spa",
+                  msgFr: "Pour cette conversation, je gère un salon de coiffure ou spa. J'ai des questions sur la location de chaises vs statut employé, la TVQ sur mes services et produits revendus, et les déductions pour équipements esthétiques.",
+                  msgEn: "For this conversation, I run a salon or spa. I have questions about chair rental vs. employee classification, GST/HST on services and product resale, and equipment deductions." },
+                { labelFr: "🔨 Entrepreneur", labelEn: "🔨 Contractor",
+                  msgFr: "Pour cette conversation, je suis entrepreneur général ou sous-traitant. J'ai des questions sur la TPS/TVQ sur mes travaux, les dépenses de chantier déductibles, et mes acomptes provisionnels trimestriels.",
+                  msgEn: "For this conversation, I am a general contractor or sub-contractor. I have questions about GST/HST on my work, deductible job-site expenses, and quarterly installment payments." },
+                { labelFr: "👥 Avec employés", labelEn: "👥 With employees",
+                  msgFr: "Pour cette conversation, j'ai des employés. J'ai des questions sur les retenues à la source (RPC/AE/impôt), les feuillets T4/RL-1, et mes obligations d'employeur envers la CNESST et le RQAP.",
+                  msgEn: "For this conversation, I have employees. I have questions about payroll deductions (CPP/EI/tax), T4 slips, and my employer obligations for WSIB/CNESST." },
+                { labelFr: "🌱 1re année", labelEn: "🌱 First year",
+                  msgFr: "Pour cette conversation, je suis en ma première année d'activité. J'ai des questions sur quand je dois m'inscrire à la TPS/TVQ, mon premier rapport d'impôt, et comment structurer mon entreprise (travailleur autonome vs incorporation).",
+                  msgEn: "For this conversation, I am in my first year of business. I have questions about when to register for GST/HST, my first tax return, and how to structure my business (sole proprietor vs. incorporation)." },
+              ]).map(({ labelFr, labelEn, msgFr, msgEn }) => (
+                <button
+                  key={labelFr}
+                  onClick={() => setInput(language === "fr" ? msgFr : msgEn)}
+                  className="shrink-0 text-[11px] font-medium text-gray-400 hover:text-white bg-surface-overlay hover:bg-brand/10 hover:border-brand/30 border border-gray-700 rounded-full px-3 py-1 transition-colors"
+                >
+                  {language === "fr" ? labelFr : labelEn}
+                </button>
+              ))}
+            </div>
             <div className="flex gap-3 items-end">
               <textarea
                 ref={inputRef}

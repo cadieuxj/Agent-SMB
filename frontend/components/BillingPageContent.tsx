@@ -32,9 +32,9 @@ const PLANS = {
     },
     {
       name: "Pro",
-      price: "29 $",
-      priceNote: "/mois",
-      description: "Pour les PME en croissance",
+      price: "49 $",
+      priceNote: "/mois CAD",
+      description: "Pour les PME sérieuses",
       features: [
         "Messages illimités",
         "Agents Fiscalité + Trésorerie",
@@ -48,8 +48,8 @@ const PLANS = {
     },
     {
       name: "Entreprise",
-      price: "79 $",
-      priceNote: "/mois",
+      price: "99 $",
+      priceNote: "/mois CAD",
       description: "Pour les équipes et comptables",
       features: [
         "Tout Pro inclus",
@@ -78,9 +78,9 @@ const PLANS = {
     },
     {
       name: "Pro",
-      price: "$29",
-      priceNote: "/mo",
-      description: "For growing SMBs",
+      price: "$49",
+      priceNote: "/mo CAD",
+      description: "For serious SMBs",
       features: [
         "Unlimited messages",
         "Tax + Cash Flow agents",
@@ -94,8 +94,8 @@ const PLANS = {
     },
     {
       name: "Business",
-      price: "$79",
-      priceNote: "/mo",
+      price: "$99",
+      priceNote: "/mo CAD",
       description: "For teams & accountants",
       features: [
         "Everything in Pro",

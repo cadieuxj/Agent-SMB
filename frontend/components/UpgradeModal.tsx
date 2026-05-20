@@ -33,7 +33,7 @@ export default function UpgradeModal({ onClose, onUpgrade, language = "fr" }: Up
       className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm p-6 space-y-5 relative">
+      <div className="dark-landing bg-gray-900 border border-gray-700 rounded-2xl w-full max-w-sm p-6 space-y-5 relative">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 text-gray-500 hover:text-gray-300 transition-colors"
@@ -70,7 +70,7 @@ export default function UpgradeModal({ onClose, onUpgrade, language = "fr" }: Up
 
         <div className="space-y-3 pt-1">
           <Button onClick={onUpgrade} size="lg" className="w-full">
-            {t ? "Upgrade → $29/mo" : "Mettre à niveau → 29 $/mois"}
+            {t ? "Upgrade → $49/mo CAD" : "Mettre à niveau → 49 $/mois CAD"}
           </Button>
           <p className="text-center text-xs text-gray-600">
             {t ? "Cancel anytime · No commitment" : "Annulez en tout temps · Sans engagement"}

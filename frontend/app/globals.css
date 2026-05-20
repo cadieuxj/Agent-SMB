@@ -121,6 +121,39 @@
   }
 }
 
+  /* ── Landing page: always dark regardless of user theme preference ──────── */
+  /* The marketing page is a public dark-themed page and must not inherit
+     the app's light-mode overrides, which flip text-white → #0f172a.
+     bg-surface-base/90 (with opacity modifier) is NOT caught by the
+     .bg-surface-base selector, so the nav stays dark while text turns dark too. */
+  /* bg-surface-base/90 uses an opacity modifier → different CSS class, needs its own rule */
+  html.theme-light .dark-landing nav                 { background-color: rgba(10,14,26,0.9) !important; }
+  html.theme-light .dark-landing .bg-surface-base    { background-color: #0a0e1a !important; }
+  html.theme-light .dark-landing .bg-surface-raised  { background-color: #111827 !important; }
+  html.theme-light .dark-landing .bg-surface-overlay { background-color: #1e2433 !important; }
+  html.theme-light .dark-landing .border-gray-800    { border-color: #27272a !important; }
+  html.theme-light .dark-landing .border-gray-700    { border-color: #3f3f46 !important; }
+  html.theme-light .dark-landing .border-gray-600    { border-color: #52525b !important; }
+  html.theme-light .dark-landing .text-white         { color: #ffffff !important; }
+  html.theme-light .dark-landing .text-gray-100      { color: #f4f4f5 !important; }
+  html.theme-light .dark-landing .text-gray-200      { color: #e4e4e7 !important; }
+  html.theme-light .dark-landing .text-gray-300      { color: #d4d4d8 !important; }
+  html.theme-light .dark-landing .text-gray-400      { color: #a1a1aa !important; }
+  html.theme-light .dark-landing .text-gray-500      { color: #71717a !important; }
+  html.theme-light .dark-landing .text-gray-600      { color: #52525b !important; }
+  html.theme-light .dark-landing .rounded-xl         { box-shadow: none !important; }
+  html.theme-light .dark-landing .rounded-2xl        { box-shadow: none !important; }
+  html.theme-light .dark-landing .rounded-3xl        { box-shadow: none !important; }
+  html.theme-light .dark-landing .bg-brand\/10       { background-color: rgba(99,102,241,0.1) !important; }
+  html.theme-light .dark-landing .bg-brand\/5        { background-color: rgba(99,102,241,0.05) !important; }
+  html.theme-light .dark-landing .bg-brand\/8        { background-color: rgba(99,102,241,0.08) !important; }
+
+  /* Authority badge text must stay white on coloured backgrounds in light mode */
+  html.theme-light .bg-red-600 .text-white,
+  html.theme-light .bg-blue-600 .text-white  { color: #ffffff !important; }
+  html.theme-light span.bg-red-600,
+  html.theme-light span.bg-blue-600          { color: #ffffff !important; }
+
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;

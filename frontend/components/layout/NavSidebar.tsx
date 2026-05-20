@@ -8,10 +8,10 @@ import { cn } from "@/lib/utils";
 import type { Profile } from "@/lib/api";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", icon: LayoutDashboard, labelFr: "Tableau de bord", labelEn: "Dashboard" },
-  { href: "/chat",      icon: MessageSquare,   labelFr: "Chat",            labelEn: "Chat" },
-  { href: "/memory",    icon: Layers,          labelFr: "Mémoire",         labelEn: "Memory" },
-  { href: "/settings",  icon: Settings,        labelFr: "Paramètres",      labelEn: "Settings" },
+  { href: "/dashboard", icon: LayoutDashboard, labelFr: "Accueil",    labelEn: "Home" },
+  { href: "/chat",      icon: MessageSquare,   labelFr: "Chat",       labelEn: "Chat" },
+  { href: "/memory",    icon: Layers,          labelFr: "Documents",  labelEn: "Documents" },
+  { href: "/settings",  icon: Settings,        labelFr: "Compte",     labelEn: "Account" },
 ];
 
 interface NavSidebarProps {

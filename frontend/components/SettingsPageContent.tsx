@@ -1,13 +1,19 @@
 "use client";
 
+"use client";
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Menu, UtensilsCrossed, ShoppingBag, HardHat,
-  Sparkles, Briefcase, Building2, Check, Trash2,
+  Sparkles, Briefcase, Building2, Check, Trash2, Mail, BarChart2,
 } from "lucide-react";
-import { getProfile, updateProfile, deleteAccount, type Profile } from "@/lib/api";
+import {
+  getProfile, updateProfile, deleteAccount,
+  getNotificationPrefs, saveNotificationPrefs,
+  type Profile, type NotificationPrefs,
+} from "@/lib/api";
 import NavSidebar from "@/components/layout/NavSidebar";
 import MobileBottomTabs from "@/components/layout/MobileBottomTabs";
 import MobileDrawer from "@/components/layout/MobileDrawer";
@@ -15,6 +21,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+
+// Provinces where English is the default (non-QC/NB)
+const EN_FIRST_PROVINCES = ["ON", "BC", "AB", "MB", "SK", "NS", "NL", "PE"];
 
 const BUSINESS_TYPES = [
   { value: "restaurant",   label: "Restaurant / Café",       icon: UtensilsCrossed },
@@ -53,6 +62,8 @@ type Form = {
   language: string;
   sales_tax_registered: string;
   revenue_range: string;
+  accountant_email: string;
+  prior_year_net_income: string;
 };
 
 function profileToForm(p: Profile | null): Form {
@@ -64,6 +75,8 @@ function profileToForm(p: Profile | null): Form {
     language: p?.language ?? "fr",
     sales_tax_registered: p?.sales_tax_registered === true ? "yes" : p?.sales_tax_registered === false ? "no" : "yes",
     revenue_range: p?.revenue_range ?? "30k_100k",
+    accountant_email: p?.accountant_email ?? "",
+    prior_year_net_income: p?.prior_year_net_income != null ? String(p.prior_year_net_income) : "",
   };
 }
 
@@ -71,6 +84,7 @@ export default function SettingsPageContent({ userId, userEmail }: { userId: str
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [form, setForm] = useState<Form>(profileToForm(null));
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>({ deadline_email: false, reminder_days_before: 7, monthly_digest_email: false });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -82,9 +96,10 @@ export default function SettingsPageContent({ userId, userEmail }: { userId: str
   const t = language === "en";
 
   useEffect(() => {
-    getProfile(userId).then((p) => {
+    Promise.all([getProfile(userId), getNotificationPrefs(userId)]).then(([p, np]) => {
       setProfile(p);
       setForm(profileToForm(p));
+      setNotifPrefs(np);
       setLoading(false);
     });
   }, [userId]);
@@ -94,19 +109,32 @@ export default function SettingsPageContent({ userId, userEmail }: { userId: str
     setSaved(false);
   }
 
+  function setProvinceAndAutoLang(province: string) {
+    const autoLang = EN_FIRST_PROVINCES.includes(province) ? "en" : "fr";
+    setForm((f) => ({ ...f, province, language: autoLang }));
+    setSaved(false);
+  }
+
   async function handleSave() {
     setSaving(true);
     try {
-      const updated = await updateProfile(userId, {
-        email: userEmail,
-        full_name: form.full_name || undefined,
-        business_name: form.business_name,
-        business_type: form.business_type,
-        province: form.province,
-        language: form.language,
-        sales_tax_registered: form.sales_tax_registered === "yes",
-        revenue_range: form.revenue_range,
-      });
+      const [updated] = await Promise.all([
+        updateProfile(userId, {
+          email: userEmail,
+          full_name: form.full_name || undefined,
+          business_name: form.business_name,
+          business_type: form.business_type,
+          province: form.province,
+          language: form.language,
+          sales_tax_registered: form.sales_tax_registered === "yes",
+          revenue_range: form.revenue_range,
+          accountant_email: form.accountant_email || undefined,
+          prior_year_net_income: form.prior_year_net_income
+            ? parseFloat(form.prior_year_net_income)
+            : undefined,
+        }),
+        saveNotificationPrefs(userId, notifPrefs),
+      ]);
       setProfile(updated);
       document.cookie = `lang=${form.language}; path=/; max-age=31536000`;
       setSaved(true);
@@ -260,13 +288,18 @@ export default function SettingsPageContent({ userId, userEmail }: { userId: str
                     <label className="block text-sm font-medium text-gray-300">{t ? "Province" : "Province"}</label>
                     <select
                       value={form.province}
-                      onChange={(e) => set("province", e.target.value)}
+                      onChange={(e) => setProvinceAndAutoLang(e.target.value)}
                       className="w-full bg-surface-overlay border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
                     >
                       {PROVINCES.map((p) => (
                         <option key={p.value} value={p.value}>{p.label}</option>
                       ))}
                     </select>
+                    {EN_FIRST_PROVINCES.includes(form.province) && form.language === "en" && (
+                      <p className="text-[11px] text-brand-text">
+                        {t ? "Language auto-set to English for your province." : "Langue auto-définie à l'anglais pour votre province."}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <label className="block text-sm font-medium text-gray-300">{t ? "Language" : "Langue"}</label>
@@ -341,6 +374,134 @@ export default function SettingsPageContent({ userId, userEmail }: { userId: str
                     ))}
                   </div>
                 </section>
+                {/* Accountant & installments */}
+                <section className="space-y-4">
+                  <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    {t ? "Accountant & Tax Planning" : "Comptable & planification fiscale"}
+                  </h2>
+                  <Input
+                    id="accountant_email"
+                    label={t ? "Your accountant's email" : "Courriel de votre comptable"}
+                    type="email"
+                    value={form.accountant_email}
+                    onChange={(e) => set("accountant_email", e.target.value)}
+                    placeholder="comptable@cabinet.com"
+                    leadingIcon={<Mail size={14} />}
+                  />
+                  <p className="text-xs text-gray-500 -mt-2">
+                    {t
+                      ? "Used by the 'Email My Accountant' button in Chat. Stored securely server-side."
+                      : "Utilisé par le bouton 'Envoyer à mon comptable' dans le chat. Sauvegardé côté serveur."}
+                  </p>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-sm font-medium text-gray-300">
+                      {t ? "Prior-year net income ($)" : "Revenu net de l'année passée ($)"}
+                    </label>
+                    <div className="relative">
+                      <BarChart2 size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                      <input
+                        type="number"
+                        min="0"
+                        step="1000"
+                        value={form.prior_year_net_income}
+                        onChange={(e) => set("prior_year_net_income", e.target.value)}
+                        placeholder={t ? "e.g. 75000" : "ex. 75000"}
+                        className="w-full pl-9 bg-surface-overlay border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {t
+                        ? "Powers the quarterly installment estimate in your fiscal calendar."
+                        : "Permet d'estimer vos acomptes provisionnels trimestriels dans le calendrier fiscal."}
+                    </p>
+                  </div>
+                </section>
+
+                {/* Notification preferences */}
+                <section className="space-y-4">
+                  <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    {t ? "Email notifications" : "Notifications par courriel"}
+                  </h2>
+
+                  {/* Monthly digest toggle */}
+                  <label className="flex items-center justify-between gap-4 cursor-pointer group">
+                    <div>
+                      <p className="text-sm font-medium text-gray-300">
+                        {t ? "Monthly tax digest" : "Bilan fiscal mensuel"}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {t
+                          ? "Sent the 1st of each month: upcoming deadlines, installment amounts, and your fiscal snapshot."
+                          : "Envoyé le 1er de chaque mois : échéances à venir, montants d'acomptes et bilan fiscal."}
+                      </p>
+                    </div>
+                    <div
+                      onClick={() => setNotifPrefs((p) => ({ ...p, monthly_digest_email: !p.monthly_digest_email }))}
+                      className={cn(
+                        "w-10 h-6 rounded-full transition-colors relative cursor-pointer shrink-0",
+                        notifPrefs.monthly_digest_email ? "bg-brand" : "bg-gray-700"
+                      )}
+                    >
+                      <div className={cn(
+                        "absolute top-1 w-4 h-4 rounded-full bg-white transition-transform shadow-sm",
+                        notifPrefs.monthly_digest_email ? "translate-x-5" : "translate-x-1"
+                      )} />
+                    </div>
+                  </label>
+
+                  {/* Deadline reminders toggle */}
+                  <label className="flex items-center justify-between gap-4 cursor-pointer group">
+                    <div>
+                      <p className="text-sm font-medium text-gray-300">
+                        {t ? "Deadline reminders" : "Rappels d'échéances"}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {t
+                          ? "Email reminders before CRA/RQ deadlines."
+                          : "Rappels par courriel avant vos échéances ARC/RQ."}
+                      </p>
+                    </div>
+                    <div
+                      onClick={() => setNotifPrefs((p) => ({ ...p, deadline_email: !p.deadline_email }))}
+                      className={cn(
+                        "w-10 h-6 rounded-full transition-colors relative cursor-pointer shrink-0",
+                        notifPrefs.deadline_email ? "bg-brand" : "bg-gray-700"
+                      )}
+                    >
+                      <div className={cn(
+                        "absolute top-1 w-4 h-4 rounded-full bg-white transition-transform shadow-sm",
+                        notifPrefs.deadline_email ? "translate-x-5" : "translate-x-1"
+                      )} />
+                    </div>
+                  </label>
+
+                  {notifPrefs.deadline_email && (
+                    <div className="space-y-2 ml-2">
+                      <p className="text-xs font-medium text-gray-400">
+                        {t ? "Remind me this many days before:" : "Me rappeler combien de jours avant :"}
+                      </p>
+                      <div className="flex gap-2">
+                        {[3, 7, 14].map((days) => (
+                          <button
+                            key={days}
+                            type="button"
+                            onClick={() => setNotifPrefs((p) => ({ ...p, reminder_days_before: days }))}
+                            className={cn(
+                              "flex-1 py-2 rounded-lg text-sm font-medium border transition-colors",
+                              notifPrefs.reminder_days_before === days
+                                ? "border-brand bg-brand/10 text-brand-text"
+                                : "border-gray-700 text-gray-400 hover:border-gray-600"
+                            )}
+                          >
+                            {days}j
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </section>
+
                 {/* Danger zone — account deletion (Law 25 §28) */}
                 <section className="space-y-4 pt-4 border-t border-gray-800">
                   <h2 className="text-xs font-semibold text-danger uppercase tracking-wider">

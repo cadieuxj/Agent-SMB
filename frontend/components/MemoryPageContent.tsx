@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Menu, Brain, Inbox, Trash2, Undo2, ShieldCheck, Lock, BadgeCheck, FileCheck, Zap } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Menu, Brain, Inbox, Trash2, Undo2, ShieldCheck, Lock, BadgeCheck, FileCheck, Zap, RefreshCw } from "lucide-react";
 import { getProfile, getMemories, deleteMemory, type Memory, type Profile } from "@/lib/api";
 import UpgradeModal from "@/components/UpgradeModal";
 import NavSidebar from "@/components/layout/NavSidebar";
@@ -41,9 +41,20 @@ export default function MemoryPageContent({ userId, userEmail }: { userId: strin
   // Undo-delete state
   const [pendingDeletes, setPendingDeletes] = useState<Map<string, { memory: Memory; timer: ReturnType<typeof setTimeout> }>>(new Map());
   const [isPro, setIsPro] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const language = (profile?.language ?? "fr") as "fr" | "en";
   const t = language === "en";
+
+  const fetchMemories = useCallback(async (showSpinner = false) => {
+    if (showSpinner) setRefreshing(true);
+    try {
+      const m = await getMemories(userId);
+      setMemories(m);
+    } finally {
+      if (showSpinner) setRefreshing(false);
+    }
+  }, [userId]);
 
   useEffect(() => {
     Promise.all([getProfile(userId), getMemories(userId)]).then(([p, m]) => {
@@ -53,6 +64,13 @@ export default function MemoryPageContent({ userId, userEmail }: { userId: strin
     });
     setIsPro(localStorage.getItem(`agentsmb_pro_${userId}`) === "true");
   }, [userId]);
+
+  // Re-fetch memories when the tab regains focus (user returns from chat)
+  useEffect(() => {
+    const onFocus = () => { fetchMemories(); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [fetchMemories]);
 
   function handleDelete(memory: Memory) {
     setMemories((prev) => prev.filter((m) => m.id !== memory.id));
@@ -117,7 +135,7 @@ export default function MemoryPageContent({ userId, userEmail }: { userId: strin
             <button onClick={() => setDrawerOpen(true)} className="p-1 text-gray-400 hover:text-gray-200 transition-colors" aria-label={t ? "Open menu" : "Ouvrir le menu"}>
               <Menu size={20} />
             </button>
-            <span className="ml-3 font-semibold text-sm text-white">{t ? "Memory" : "Mémoire"}</span>
+            <span className="ml-3 font-semibold text-sm text-white">Documents</span>
           </div>
 
           <main className="flex-1 overflow-y-auto px-4 py-6 lg:px-8">
@@ -126,16 +144,27 @@ export default function MemoryPageContent({ userId, userEmail }: { userId: strin
             ) : (
               <div className="max-w-2xl mx-auto space-y-6">
                 {/* Header */}
-                <div className="flex items-center gap-3">
-                  <Brain size={22} className="text-agent-advisor" />
-                  <div>
-                    <h1 className="text-xl font-bold text-white">{t ? "Memory" : "Mémoire"}</h1>
-                    <p className="text-sm text-gray-500">
-                      {t
-                        ? `${memories.length} thing${memories.length !== 1 ? "s" : ""} remembered about your business`
-                        : `${memories.length} souvenir${memories.length !== 1 ? "s" : ""} sur votre entreprise`}
-                    </p>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Brain size={22} className="text-agent-advisor" />
+                    <div>
+                      <h1 className="text-xl font-bold text-white">Documents</h1>
+                      <p className="text-sm text-gray-500">
+                        {t
+                          ? `${memories.length} business fact${memories.length !== 1 ? "s" : ""} on file`
+                          : `${memories.length} fait${memories.length !== 1 ? "s" : ""} mémorisé${memories.length !== 1 ? "s" : ""}`}
+                      </p>
+                    </div>
                   </div>
+                  <button
+                    onClick={() => fetchMemories(true)}
+                    disabled={refreshing}
+                    className="p-2 text-gray-500 hover:text-gray-300 hover:bg-surface-overlay rounded-lg transition-colors disabled:opacity-50"
+                    aria-label={t ? "Refresh memories" : "Actualiser la mémoire"}
+                    title={t ? "Refresh" : "Actualiser"}
+                  >
+                    <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+                  </button>
                 </div>
 
                 {/* Category tabs */}

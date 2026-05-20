@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from pydantic import BaseModel
@@ -11,6 +12,8 @@ from agents.orchestrator import route
 from core.auth import get_current_user_id, require_own_user
 from core.mem0_client import add_memory
 from core.supabase_client import get_supabase
+
+logger = logging.getLogger("agentsmb.chat")
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -35,7 +38,7 @@ class ChatResponse(BaseModel):
 
 
 def _save_memory(user_id: str, user_msg: str, assistant_reply: str) -> None:
-    """Fire-and-forget: persist exchange to Mem0 (runs in background thread)."""
+    """Persist the exchange to Mem0 (runs in a background thread via BackgroundTasks)."""
     try:
         add_memory(
             user_id=user_id,
@@ -44,8 +47,9 @@ def _save_memory(user_id: str, user_msg: str, assistant_reply: str) -> None:
                 {"role": "assistant", "content": assistant_reply},
             ],
         )
-    except Exception:
-        pass
+        logger.info("_save_memory ok user=%s", user_id[:8])
+    except Exception as exc:
+        logger.error("_save_memory FAILED user=%s: %s", user_id[:8], exc, exc_info=True)
 
 
 @router.post("", response_model=ChatResponse)
@@ -87,7 +91,7 @@ async def chat(
     history = [{"role": r["role"], "content": r["content"]} for r in history_result.data]
 
     # Run the blocking classify + Mem0 search + Anthropic call in a thread
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     result = await loop.run_in_executor(
         _executor,
         lambda: route(

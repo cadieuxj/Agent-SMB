@@ -59,5 +59,21 @@ app.include_router(profiles_router)
 
 @app.get("/health")
 async def health():
-    # Never leak env or version in production
     return {"status": "ok"}
+
+
+@app.get("/health/mem0")
+async def health_mem0():
+    """Verify Mem0 connectivity — safe to call in production for monitoring."""
+    import asyncio
+    from core.mem0_client import get_all_memories
+    try:
+        loop = asyncio.get_running_loop()
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=1) as ex:
+            memories = await loop.run_in_executor(
+                ex, lambda: get_all_memories("_health_check_probe")
+            )
+        return {"status": "ok", "mem0_reachable": True}
+    except Exception as exc:
+        return {"status": "degraded", "mem0_reachable": False, "error": str(exc)}

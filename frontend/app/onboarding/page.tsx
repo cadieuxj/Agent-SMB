@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["Langue", "Entreprise", "Fiscalité", "Activation"];
+const STEPS_FR = ["Langue", "Entreprise", "Fiscalité", "Activation"];
+const STEPS_EN = ["Language", "Business", "Tax info", "Start"];
 
 const BUSINESS_TYPES = [
   { value: "restaurant",    label: "Restaurant / Café",         icon: UtensilsCrossed },
@@ -57,6 +58,8 @@ const STARTER_CHIPS: Record<string, string[]> = {
   ],
 };
 
+const EN_FIRST_PROVINCES = ["ON", "BC", "AB", "MB", "SK", "NS", "NL", "PE"];
+
 type Form = {
   language: string;
   full_name: string;
@@ -65,6 +68,8 @@ type Form = {
   province: string;
   sales_tax_registered: string;
   revenue_range: string;
+  has_employees: "yes" | "no" | "";
+  prior_year_net_income: string;
 };
 
 export default function OnboardingPage() {
@@ -82,6 +87,8 @@ export default function OnboardingPage() {
     province: "QC",
     sales_tax_registered: "yes",
     revenue_range: "30k_100k",
+    has_employees: "",
+    prior_year_net_income: "",
   });
 
   function set(field: keyof Form, value: string) {
@@ -114,6 +121,9 @@ export default function OnboardingPage() {
         language: form.language,
         sales_tax_registered: form.sales_tax_registered === "yes",
         revenue_range: form.revenue_range,
+        prior_year_net_income: form.prior_year_net_income
+          ? parseFloat(form.prior_year_net_income)
+          : undefined,
       });
       document.cookie = `lang=${form.language}; path=/; max-age=31536000`;
       const dest = message
@@ -130,9 +140,11 @@ export default function OnboardingPage() {
     (step === 1 && (!form.business_name.trim() || !form.business_type)) ||
     (step === 2 && (!form.province || !form.sales_tax_registered || !form.revenue_range));
 
+  const steps = form.language === "en" ? STEPS_EN : STEPS_FR;
+
   return (
     <OnboardingShell
-      steps={STEPS}
+      steps={steps}
       current={step}
       onBack={step > 0 ? () => setStep(step - 1) : undefined}
       onNext={step < 3 ? () => setStep(step + 1) : undefined}
@@ -255,6 +267,28 @@ function StepBusiness({ form, set }: { form: Form; set: (k: keyof Form, v: strin
 /* ── Step 3: Tax Context ── */
 function StepTax({ form, set }: { form: Form; set: (k: keyof Form, v: string) => void }) {
   const t = form.language === "en";
+
+  function handleProvinceChange(province: string) {
+    set("province", province);
+    // Auto-set language based on province (same logic as Settings page)
+    const autoLang = EN_FIRST_PROVINCES.includes(province) ? "en" : "fr";
+    set("language", autoLang);
+  }
+
+  const incomeLabel = form.has_employees === "yes"
+    ? (t
+      ? "Your personal net income (not your payroll total)"
+      : "Votre revenu net personnel (pas le total de la paie)")
+    : (t ? "Prior-year net income (optional)" : "Revenu net de l'année passée (optionnel)");
+
+  const incomeHelper = form.has_employees === "yes"
+    ? (t
+      ? "Enter your own income, not your employees' wages — used only for your personal installment estimate."
+      : "Entrez votre revenu personnel, pas les salaires de vos employés — sert uniquement à estimer vos acomptes personnels.")
+    : (t
+      ? "Used to estimate your quarterly installments on the dashboard."
+      : "Sert à estimer vos acomptes provisionnels sur le tableau de bord.");
+
   return (
     <div className="space-y-8">
       <div className="space-y-2">
@@ -268,23 +302,61 @@ function StepTax({ form, set }: { form: Form; set: (k: keyof Form, v: string) =>
         </p>
       </div>
 
+      {/* Province — auto-sets language */}
       <div className="space-y-1.5">
         <label className="block text-sm font-medium text-gray-300">
           {t ? "Province" : "Province"}
         </label>
         <select
           value={form.province}
-          onChange={(e) => set("province", e.target.value)}
+          onChange={(e) => handleProvinceChange(e.target.value)}
           className="w-full bg-surface-overlay border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent transition-colors"
         >
           {PROVINCES.map((p) => (
             <option key={p.value} value={p.value}>{p.label}</option>
           ))}
         </select>
+        {EN_FIRST_PROVINCES.includes(form.province) && form.language === "en" && (
+          <p className="text-[11px] text-brand-text">
+            {t ? "Interface set to English for your province." : "Interface mise en anglais pour votre province."}
+          </p>
+        )}
+      </div>
+
+      {/* Employer vs self-employed branch */}
+      <div className="space-y-3">
+        <p className="text-sm font-medium text-gray-300">
+          {t ? "Do you have employees?" : "Avez-vous des employés?"}
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { value: "yes", label: t ? "Yes — I have employees" : "Oui — j'ai des employés" },
+            { value: "no",  label: t ? "No — self-employed only" : "Non — travailleur autonome" },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => set("has_employees", opt.value)}
+              className={cn(
+                "flex items-center gap-3 px-4 py-3 rounded-xl border text-sm transition-all text-left",
+                form.has_employees === opt.value
+                  ? "border-brand bg-brand/10 text-white"
+                  : "border-gray-700 bg-surface-raised text-gray-400 hover:border-gray-600 hover:text-gray-200"
+              )}
+            >
+              <div className={cn(
+                "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                form.has_employees === opt.value ? "border-brand" : "border-gray-600"
+              )}>
+                {form.has_employees === opt.value && <div className="w-2 h-2 rounded-full bg-brand" />}
+              </div>
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <RadioGroup
-        label={t ? "Are you registered to collect sales tax? (GST/HST)" : "Êtes-vous inscrit(e) aux taxes de vente? (TPS/TVQ)"}
+        label={t ? "Are you registered for sales tax? (GST/HST)" : "Êtes-vous inscrit(e) aux taxes de vente? (TPS/TVQ)"}
         value={form.sales_tax_registered}
         onChange={(v) => set("sales_tax_registered", v)}
         options={[
@@ -299,6 +371,21 @@ function StepTax({ form, set }: { form: Form; set: (k: keyof Form, v: string) =>
         onChange={(v) => set("revenue_range", v)}
         options={REVENUE_RANGES}
       />
+
+      {/* Prior-year income — label adapts to employer status */}
+      <div className="space-y-1.5">
+        <label className="block text-sm font-medium text-gray-300">{incomeLabel}</label>
+        <input
+          type="number"
+          min="0"
+          step="1000"
+          value={form.prior_year_net_income ?? ""}
+          onChange={(e) => set("prior_year_net_income" as keyof Form, e.target.value)}
+          placeholder={t ? "e.g. 75000" : "ex. 75 000"}
+          className="w-full bg-surface-overlay border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand transition-colors"
+        />
+        <p className="text-[11px] text-gray-500">{incomeHelper}</p>
+      </div>
     </div>
   );
 }

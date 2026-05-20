@@ -23,7 +23,7 @@ import anthropic
 # Config
 # ---------------------------------------------------------------------------
 
-TARGET_SCORE = 8.5
+TARGET_SCORE = 9.0
 MAX_ITERATIONS = 4
 MODEL = "claude-sonnet-4-6"
 OUTPUT_FILE = Path(__file__).parent / "pilot_feedback_report.md"
@@ -127,47 +127,33 @@ PERSONAS = [
 # ---------------------------------------------------------------------------
 
 APP_DESCRIPTION = """
-Agent SMB is a dark-themed, bilingual (French/English) AI business advisor SaaS for Canadian SMBs.
+Agent SMB is a bilingual (French/English) AI business advisor SaaS for Canadian SMBs.
+Default theme is LIGHT MODE (professional white interface like QuickBooks/Sage). Dark mode available in settings.
+Developed by CadieuxAI Inc. (Canada). All data hosted in Canada.
 
 KEY FEATURES:
-1. Authentication: Magic-link login (no password). Clean dark screen with trust badges.
-2. Onboarding: 4-step wizard — language selection, business profile (icon grid), tax context (province, TPS/TVQ registration, revenue range), activation (starter chip suggestions).
-3. Dashboard: Business overview with 4 widgets — upcoming CRA/ARC deadlines, proactive suggestions, top AI memories, and a quick-chat input with starter chips.
-4. Chat: Bilingual AI chat with 3 specialized agents (General advisor, Tax/Fiscalité, Cash flow/Trésorerie). Messages show agent badges. Copy button on AI responses. Empty state has starter prompt cards.
-5. Memory page: All AI memories categorized (Fiscalité, Trésorerie, Profil), each deletable with 3s undo toast.
-6. Settings: Profile form with business type, province, tax info, language toggle.
-7. Billing: Free (50 msg/mo — generous free tier) / Pro $29/mo / Business $79/mo. Paywall toast at 40 messages.
-8. Navigation: Desktop sidebar with active route highlights, mobile bottom tabs (Dashboard/Chat/Memory/Settings), mobile hamburger drawer. Chat shows "← Dashboard" back link on mobile.
-9. Privacy: Full privacy policy page (/privacy) with Loi 25 / PIPEDA compliance details, third-party disclosures (Anthropic, Mem0, Supabase Canada). Privacy link on login page.
-10. Onboarding Step 3 simplified: renamed "Contexte fiscal" → "Vos taxes et revenus", plain-language labels for TPS/TVQ registration.
-11. Onboarding Step 4 (Activation): 14-day free Pro trial banner — no credit card required, one-tap activation.
-12. Navigation: Chat page shows "← Dashboard/Tableau" back link in mobile header. All sidebar links have active route highlighting.
-13. Theme: LIGHT MODE IS THE DEFAULT for all new users and mobile users. The app opens in a clean white/slate professional interface by default — white cards, dark slate text (#0f172a), high-contrast body text (#334155), light gray backgrounds. The dark "hacker" look is gone by default. Only advanced users who prefer dark can toggle it in Settings. Dave and Fatima (who use iPhones/Android in normal conditions) see a clean, professional white interface that looks like a proper Canadian business tool — NOT like a gaming app or Silicon Valley startup. The light interface has been specifically designed to look like professional accounting/business software (think QuickBooks, Sage) that Canadian tradespeople and business owners recognize as trustworthy.
-14. Dashboard priority hero: A full-width "Next Deadline" or "Top Suggestion" hero card appears at the TOP of the dashboard before the widget grid — shows the single most important action in large readable text, so non-tech users immediately see what to do without scanning widgets.
-15. Chat source footer: Tax and Cash Flow agent responses now show a "🍁 ARC / CRA" link footer with a disclaimer, giving professional credibility and letting users verify information directly on canada.ca.
-16. Account deletion: Users can request account deletion via Settings → contact form (privacy@cadieuxai.com). Memory deletion (per-item with undo) fully functional. Privacy policy details right-to-erasure process.
-17. TL;DR collapsible on long AI responses: Responses over 500 characters show only the first sentence initially with a "Voir la réponse complète / Show full response" button. Users can expand or collapse at will. Prevents overwhelming non-tech users with walls of text.
-18. Improved AI response depth: Tax and cash flow agents are instructed to give Canadian-specific answers including T2125 vs T2 scenarios, specific CRA document references, and province-specific tax rules — rather than defaulting to generic "consult a professional" hedges.
-19. Better onboarding Step 4 free trial: 14-day Pro trial with one-tap activation, no credit card. Users who activate trial get full access to Tax + Cashflow agents and full memory during evaluation period.
-20. Email deadline reminders via Resend: Users can subscribe on the dashboard with a bell icon on the Deadline widget. Choose 3, 7, or 14 days before. Beautiful bilingual HTML emails are sent at 7:00 AM ET. Welcome email sent automatically after onboarding.
-21. Revenu Québec source badge: For Quebec users, Tax agent responses show both "🍁 ARC / CRA" and "🏛️ Revenu Québec" links, distinguishing federal vs provincial sources clearly.
-22. Chat export: Download full conversation as a formatted Markdown file (user messages + AI responses with agent labels).
-23. Massively improved Tax agent: Now gives DIRECT Canadian answers with specific rates (CPP 5.95%, QST 9.975%, etc.), form numbers (T2125, T2, RL-1), cites CRA publications in every response. Leads with the answer, not caveats. Distinguishes T2125 (sole proprietor) vs T2 (incorporated) automatically.
-24. Improved AI responses: Shorter, more direct, with specific source citations. Less "consult a professional" filler — one-sentence disclaimer at end only.
-25. "No AI training" commitment: prominently displayed in the chat footer, in the privacy policy (dedicated section with green badge), and in every PDF/Markdown export. Contractual commitment via Anthropic data processing agreement.
-26. PDF export: Opens a print-formatted window with Agent SMB branding, conversation history, and audit trail. One-click Save as PDF.
-27. Expert mode toggle: Users can manually select which agent handles their question (Conseiller général / Fiscalité / Trésorerie) — bypasses auto-classification for power users who know exactly what they need.
-28. Agent accountability: Every AI response shows which specialist answered (agent badge), with clickable source links (ARC/CRA + Revenu Québec for QC users).
-29. Business-type-specific starter prompts: The empty chat state shows 3 prompts tailored to the user's exact business type. IT contractors see "Am I better off incorporated (T2) or sole proprietor (T2125)?", restaurants see TVQ-on-meals questions, salons see commission-employee questions — not generic prompts.
-30. Messages always fully visible by default: AI responses show complete content immediately. Long responses (>2500 chars) have an optional collapse button, but nothing is hidden by default. Users read the full answer without any extra click.
-20. Memory page renamed: "Mémoire" is now "Mon dossier / My Business File" — a name that makes sense to non-tech Canadian business owners. Dave and Fatima understand "My Business File" immediately without needing to understand what "AI memory" means.
-21. Simple plain-language UI throughout: All technical jargon replaced with plain Canadian business language. "Dashboard" → "Accueil / Home". "Memory" → "Mon dossier". Error messages, labels, and placeholders use conversational French and English that a 51-year-old NB contractor or a Montreal salon owner would use naturally.
-22. Chat simplified: Instead of requiring users to understand 3 separate agents, the chat input now says "Posez votre question / Ask your question" and automatically routes to the right specialist agent in the background — users never see the routing, they just get the best answer.
+1. Authentication: Magic-link login (no password). Trust badges on login screen. Light mode by default — looks like a professional Canadian business tool, not a tech startup.
+2. Onboarding: 4-step wizard — language (EN-first for Ontario/BC/AB, FR-first for QC/NB), business profile, tax context (province, TPS/TVQ, revenue range, prior-year net income), 14-day Pro trial (no credit card).
+3. Dashboard: Priority hero card (most urgent deadline or suggestion). Then: Installment sticky card. Then: Annual Fiscal Calendar. Then: 4-widget grid (deadlines, suggestions, AI memory snapshot, quick chat).
+4. Installment Sticky Card (NEW — Sprint 8): Always-visible amber card on dashboard showing "Prochain acompte: Jun 15 — $6,796 / trimestre". Based on prior-year net income entered in Account → Comptable section. If income not set, shows a CTA to enter it. Links directly to Account settings. Zero navigation required — contractors and self-employed users see their most important number at a glance.
+5. Annual Fiscal Calendar (Sprint 7+8): Full-year 2026 tax calendar. Collapsed: next 3 deadline chips. Expanded: 12-month grid (2-column on mobile for larger touch targets). Each event shows: colored dot (red=filing, blue=remittance, amber=installment, green=planning) PLUS authority badge — ARC in RED (Canadian flag color) for federal/CRA deadlines, RQ in BLUE (Quebec flag / fleur-de-lis color) for Revenu Québec deadlines. Legend always visible. Month cells are tappable — tapping opens a bottom sheet with full event details, dates, and authority badges. .ics calendar export button. For non-Quebec provinces, RQ events are not shown.
+6. Chat: Bilingual AI with 3 specialist agents (General, Tax/Fiscalité, Cash Flow/Trésorerie). Auto-routes to right agent. "Choisir un conseiller / Choose advisor" button (renamed from "Expert mode" — no tech jargon) lets power users manually select an agent. First-visit tooltip explains that AI auto-routes. Messages always fully visible.
+7. Industry context chips: Horizontally scrollable chip row above chat input — Restaurant, Salon/Spa, Entrepreneur, Employees, First year. Each pre-fills a bilingual context-setting message specific to that industry's Canadian tax situation.
+8. Persistent message counter badge: Always-visible pill in chat header (23/50 msg). Gray → amber at 80% → red at 95%. Tooltip explains monthly reset. Disappears for Pro users. No surprise paywalls.
+9. Export: Three options in chat desktop header: .md download, PDF (full conversation), "Comptable / Accountant" (formatted Q&A PDF with structured layout — bold, tables, lists all properly rendered, not raw markdown). Plus clipboard copy button as fallback (solves Gmail 2000-char URL limit). "Email My Accountant" button opens pre-filled mailto with accountant's email (stored server-side in profiles table, survives browser resets).
+10. Documents page (formerly Mémoire): All AI memories categorized (Fiscalité, Trésorerie, Profil). Delete with 3s undo. Refresh button + auto-refetch on window focus. Free tier: 5 memories shown, rest blurred behind Pro upgrade.
+11. Account / Compte settings: Profile (name, business, province, language), Display (theme: Light/Dark/System), Location & Language (province auto-sets language), Accountant & Tax Planning (accountant email + prior-year net income for installment calc), Email notifications (monthly digest toggle + deadline reminders 3/7/14 days), Danger zone (account deletion — full Law 25 right-to-erasure including Mem0 memories).
+12. Billing: Free (50 msg/mo) / Pro $49 CAD/mo / Business $99 CAD/mo. Persistent counter. Paywall toast at 40 messages. Upgrade modal uses dark theme correctly in both light and dark mode (readable in all situations).
+13. Monthly auto-email digest: Opt-in in Account. Sent 1st of each month. Bilingual HTML email with: upcoming deadlines (45-day horizon), estimated quarterly installments (if prior-year income set), fiscal summary.
+14. Tax agent quality: Direct CRA answers — CPP 5.95%, QST 9.975%, T2125 vs T2 auto-detection, CRA publication citations, Revenu Québec source badge for QC users. One-sentence disclaimer at end only.
+15. Privacy: Full Law 25 / PIPEDA policy. No AI training in chat footer, privacy page, every export. Consent checkbox on login. Cookie notice. Account deletion erases Supabase data AND Mem0 memories.
+16. Landing page (public, bilingual, always dark): Hero, features, how-it-works, pricing ($0/$49/$99 CAD), trust badges (ARC compliant, Law 25, no AI training, data in Canada), testimonials, FR/EN toggle.
 
-DESIGN: Deep navy-black backgrounds, indigo gradient buttons, professional dark theme. Fully responsive.
-LANGUAGE: French-first for Quebec market, full English support.
-TARGET: Canadian SMBs — restaurants, contractors, salons, professionals, freelancers.
-PRIVACY: Trust badges on login (Données au Canada, Chiffrement, Conforme ARC/CRA, Aucun partage).
+PRICING: Free $0 / Pro $49 CAD/mo / Business $99 CAD/mo
+DESIGN: Light mode default. Dark mode available. All modals remain dark-themed and readable in both modes.
+LANGUAGE: EN-first for Ontario/BC/AB/MB/SK/NS/NL/PE. FR-first for QC/NB. Bilingual throughout.
+TARGET: Canadian SMBs — restaurants, contractors, salons, professionals, freelancers, bookkeepers.
+PRIVACY: Law 25 / PIPEDA. Data in Canada. CadieuxAI Inc.
 """
 
 # ---------------------------------------------------------------------------
@@ -187,16 +173,41 @@ def _extract_json(text: str) -> dict:
         raise ValueError("No JSON object found in response")
     # Walk to find matching closing brace
     depth = 0
+    in_string = False
+    escape_next = False
     end = start
     for i, ch in enumerate(text[start:], start):
-        if ch == "{":
-            depth += 1
-        elif ch == "}":
-            depth -= 1
-            if depth == 0:
-                end = i
-                break
-    return json.loads(text[start : end + 1])
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == "\\" and in_string:
+            escape_next = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+        if not in_string:
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    end = i
+                    break
+    raw = text[start : end + 1]
+    # First try strict JSON
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+    # Fallback: use ast.literal_eval for Python-style dicts (single quotes)
+    import ast
+    try:
+        result = ast.literal_eval(raw)
+        if isinstance(result, dict):
+            return result
+    except (ValueError, SyntaxError):
+        pass
+    raise ValueError(f"Could not parse JSON/dict from response: {raw[:200]}")
 
 
 CRITERIA = [
@@ -240,7 +251,7 @@ Return ONLY valid JSON with this exact structure:
   "overall": <float — average of the 6 scores, 1 decimal>,
   "liked": ["thing 1", "thing 2", "thing 3"],
   "wants_improved": ["thing 1", "thing 2", "thing 3"],
-  "would_pay_29": <true or false>,
+  "would_pay_49": <true or false>,
   "pay_reason": "<one sentence why or why not>",
   "standout_quote": "<a one-sentence quote as this persona that captures your honest reaction>"
 }}
@@ -248,8 +259,9 @@ Return ONLY valid JSON with this exact structure:
 Scoring criteria:
 {criteria_list}
 
-Be honest and authentic to your persona. A low-tech 51-year-old contractor and a tech-savvy
-Montreal bookkeeper will have very different reactions. Score genuinely — do not inflate.
+The Pro plan costs $49 CAD/month. Evaluate honestly whether this price point is justified for
+your persona's situation. A low-tech 51-year-old contractor and a tech-savvy Montreal bookkeeper
+will have very different reactions. Score genuinely — do not inflate.
 """
 
     message = client.messages.create(
@@ -280,7 +292,7 @@ def synthesize_improvements(client: anthropic.Anthropic, reviews: list[dict]) ->
         f"Scores: {r['scores']}\n"
         f"Liked: {r['liked']}\n"
         f"Wants improved: {r['wants_improved']}\n"
-        f"Would pay $29: {r['would_pay_29']} — {r['pay_reason']}\n"
+        f"Would pay $49 CAD: {r['would_pay_49']} — {r['pay_reason']}\n"
         f"Quote: \"{r['standout_quote']}\""
         for r in reviews
     )
@@ -291,7 +303,7 @@ def synthesize_improvements(client: anthropic.Anthropic, reviews: list[dict]) ->
 You are a senior product designer and UX expert specializing in B2B SaaS for non-technical users.
 
 Current average score across 5 Canadian SMB personas: {avg:.1f}/10
-Target: 8.0/10
+Pricing context: Pro plan is now $49 CAD/month (up from $29).
 
 Here are the persona reviews:
 
@@ -300,37 +312,70 @@ Here are the persona reviews:
 App description for context:
 {APP_DESCRIPTION}
 
-Based on these reviews, identify the TOP 5 highest-impact improvements that would raise the average
-score from {avg:.1f} to 8.0+. Focus on changes that affect MULTIPLE personas simultaneously.
+Task: Generate TWO separate improvement roadmaps — one to reach 9.0/10 and one to push to 9.5/10.
+
+ROADMAP 1 — Reach 9.0/10:
+Identify the TOP 5 highest-impact, LOW-TO-MEDIUM effort improvements.
+These should be achievable in 1–2 sprints without major architectural changes.
+Focus on changes that affect MULTIPLE personas simultaneously.
+
+ROADMAP 2 — Reach 9.5/10 (from 9.0 baseline):
+Identify 5 additional improvements that require more effort but have the highest ROI.
+These can include new features, but must be justified by ROI relative to effort.
 
 For each improvement, be SPECIFIC — name exact UI components, page names, or copy changes.
 Avoid generic advice like "improve onboarding" — say exactly what to change.
 
 Return ONLY valid JSON:
 {{
-  "improvements": [
-    {{
-      "rank": 1,
-      "area": "<ui_ux|onboarding|chat|dashboard|navigation|language>",
-      "title": "<short title>",
-      "description": "<specific change to make — what component, what copy, what behavior>",
-      "affects_personas": ["marie", "dave"],
-      "expected_score_delta": <float — how much this should raise the average>,
-      "effort": "<low|medium|high>"
-    }}
-  ],
-  "root_cause": "<one paragraph diagnosis of the main gap between current score and 8.0>",
-  "projected_score_after": <float>
+  "roadmap_to_9": {{
+    "improvements": [
+      {{
+        "rank": 1,
+        "area": "<ui_ux|onboarding|chat|dashboard|navigation|language|pricing>",
+        "title": "<short title>",
+        "description": "<specific change to make — what component, what copy, what behavior>",
+        "affects_personas": ["marie", "dave"],
+        "expected_score_delta": <float>,
+        "effort": "<low|medium|high>",
+        "roi_note": "<one sentence on why this is high ROI>"
+      }}
+    ],
+    "root_cause": "<one paragraph diagnosis of the main gap between current score and 9.0>",
+    "projected_score_after": <float>
+  }},
+  "roadmap_to_9_5": {{
+    "improvements": [
+      {{
+        "rank": 1,
+        "area": "<area>",
+        "title": "<short title>",
+        "description": "<specific change>",
+        "affects_personas": ["persona_id"],
+        "expected_score_delta": <float>,
+        "effort": "<low|medium|high>",
+        "roi_note": "<one sentence on why this is high ROI despite higher effort>"
+      }}
+    ],
+    "root_cause": "<one paragraph on what still separates the app from 9.5 after 9.0 fixes>",
+    "projected_score_after": <float>
+  }},
+  "pricing_concern": "<one paragraph: at $49 CAD/mo, which personas will churn and what single change would most improve willingness to pay>"
 }}
 """
 
-    message = client.messages.create(
+    # Stream the response so we capture the full output even for large JSON payloads.
+    # The dual-roadmap JSON easily exceeds 4000 tokens — streaming with 8192 avoids truncation.
+    raw_parts = []
+    with client.messages.stream(
         model=MODEL,
-        max_tokens=2000,
+        max_tokens=8192,
         messages=[{"role": "user", "content": prompt}],
-    )
+    ) as stream:
+        for text in stream.text_stream:
+            raw_parts.append(text)
 
-    raw = message.content[0].text.strip()
+    raw = "".join(raw_parts).strip()
     return _extract_json(raw)
 
 
@@ -354,11 +399,11 @@ def generate_report(all_iterations: list[dict]) -> str:
         lines.append(f"## Iteration {iteration} — Average Score: **{avg:.1f}/10**\n")
 
         # Score table
-        lines.append("| Persona | Onboard | Dashboard | Chat | UI/UX | Navigation | Language | **Overall** | Pay $29? |")
+        lines.append("| Persona | Onboard | Dashboard | Chat | UI/UX | Navigation | Language | **Overall** | Pay $49? |")
         lines.append("|---------|---------|-----------|------|-------|------------|----------|-------------|----------|")
         for r in reviews:
             s = r["scores"]
-            pay = "✅" if r["would_pay_29"] else "❌"
+            pay = "✅" if r["would_pay_49"] else "❌"
             lines.append(
                 f"| {r['persona_name']} | {s['onboarding']} | {s['dashboard']} | {s['chat']} | "
                 f"{s['ui_ux']} | {s['navigation']} | {s['language']} | **{r['overall']}** | {pay} |"
@@ -383,34 +428,60 @@ def generate_report(all_iterations: list[dict]) -> str:
             lines.append(f"- {item}")
         lines.append("")
 
-        # Synthesis
+        # Synthesis — dual roadmap
         if synthesis:
-            lines.append("### UI/UX Synthesizer Recommendations\n")
-            lines.append(f"**Root cause:** {synthesis['root_cause']}\n")
-            lines.append(f"**Projected score after improvements:** {synthesis['projected_score_after']:.1f}/10\n")
-            lines.append("| # | Area | Improvement | Personas affected | Δ Score | Effort |")
-            lines.append("|---|------|-------------|-------------------|---------|--------|")
-            for imp in synthesis["improvements"]:
-                personas = ", ".join(imp["affects_personas"])
-                lines.append(
-                    f"| {imp['rank']} | {imp['area']} | {imp['title']} | {personas} | +{imp['expected_score_delta']} | {imp['effort']} |"
-                )
-            lines.append("")
-            lines.append("#### Detailed improvements\n")
-            for imp in synthesis["improvements"]:
-                lines.append(f"**{imp['rank']}. {imp['title']}** ({imp['area']})")
-                lines.append(f"> {imp['description']}\n")
+            r9 = synthesis.get("roadmap_to_9", {})
+            r95 = synthesis.get("roadmap_to_9_5", {})
+
+            if r9:
+                lines.append("### Roadmap to 9.0/10 (low–medium effort, highest ROI)\n")
+                lines.append(f"**Root cause:** {r9.get('root_cause', '')}\n")
+                lines.append(f"**Projected score:** {r9.get('projected_score_after', '?')}/10\n")
+                lines.append("| # | Area | Improvement | Personas | Δ Score | Effort | ROI Note |")
+                lines.append("|---|------|-------------|----------|---------|--------|----------|")
+                for imp in r9.get("improvements", []):
+                    personas = ", ".join(imp.get("affects_personas", []))
+                    lines.append(
+                        f"| {imp['rank']} | {imp['area']} | {imp['title']} | {personas} | +{imp['expected_score_delta']} | {imp['effort']} | {imp.get('roi_note', '')} |"
+                    )
+                lines.append("")
+                lines.append("#### Details — 9.0 roadmap\n")
+                for imp in r9.get("improvements", []):
+                    lines.append(f"**{imp['rank']}. {imp['title']}** ({imp['area']})")
+                    lines.append(f"> {imp['description']}\n")
+
+            if r95:
+                lines.append("### Roadmap to 9.5/10 (from 9.0 baseline)\n")
+                lines.append(f"**Root cause:** {r95.get('root_cause', '')}\n")
+                lines.append(f"**Projected score:** {r95.get('projected_score_after', '?')}/10\n")
+                lines.append("| # | Area | Improvement | Personas | Δ Score | Effort | ROI Note |")
+                lines.append("|---|------|-------------|----------|---------|--------|----------|")
+                for imp in r95.get("improvements", []):
+                    personas = ", ".join(imp.get("affects_personas", []))
+                    lines.append(
+                        f"| {imp['rank']} | {imp['area']} | {imp['title']} | {personas} | +{imp['expected_score_delta']} | {imp['effort']} | {imp.get('roi_note', '')} |"
+                    )
+                lines.append("")
+                lines.append("#### Details — 9.5 roadmap\n")
+                for imp in r95.get("improvements", []):
+                    lines.append(f"**{imp['rank']}. {imp['title']}** ({imp['area']})")
+                    lines.append(f"> {imp['description']}\n")
+
+            if "pricing_concern" in synthesis:
+                lines.append("### $49 CAD Pricing Analysis\n")
+                lines.append(synthesis["pricing_concern"])
+                lines.append("")
 
         lines.append("---\n")
 
     # Final summary
     last = all_iterations[-1]
     final_avg = sum(r["overall"] for r in last["reviews"]) / len(last["reviews"])
-    would_pay = sum(1 for r in last["reviews"] if r["would_pay_29"])
+    would_pay = sum(1 for r in last["reviews"] if r["would_pay_49"])
 
     lines.append("## Final Summary\n")
     lines.append(f"- **Final average score:** {final_avg:.1f}/10")
-    lines.append(f"- **Would pay $29/mo:** {would_pay}/5 personas")
+    lines.append(f"- **Would pay $49 CAD/mo:** {would_pay}/5 personas")
     lines.append(f"- **Target reached:** {'✅ Yes' if final_avg >= TARGET_SCORE else '❌ Not yet'}")
     lines.append(f"- **Iterations run:** {len(all_iterations)}")
 
@@ -485,11 +556,13 @@ def main():
             try:
                 synthesis = synthesize_improvements(client, reviews)
                 iteration_data["synthesis"] = synthesis
-                print(f"   Root cause: {synthesis['root_cause'][:100]}...")
-                print(f"   Projected score after fixes: {synthesis['projected_score_after']:.1f}/10")
-                print(f"\n   Top improvements:")
-                for imp in synthesis["improvements"][:3]:
-                    print(f"   {imp['rank']}. [{imp['area']}] {imp['title']} (+{imp['expected_score_delta']})")
+                r9 = synthesis.get("roadmap_to_9", {})
+                if r9:
+                    print(f"   Root cause: {str(r9.get('root_cause', ''))[:100]}...")
+                    print(f"   Projected score (9.0 roadmap): {r9.get('projected_score_after', '?')}/10")
+                    print(f"\n   Top improvements (9.0 roadmap):")
+                    for imp in r9.get("improvements", [])[:3]:
+                        print(f"   {imp['rank']}. [{imp['area']}] {imp['title']} (+{imp['expected_score_delta']})")
             except Exception as e:
                 print(f"   Synthesizer error: {e}")
 

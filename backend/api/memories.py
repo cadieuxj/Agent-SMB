@@ -26,7 +26,7 @@ class MemoriesResponse(BaseModel):
 @router.get("/{user_id}", response_model=MemoriesResponse)
 async def list_memories(user_id: str, token_user_id: str = Depends(get_current_user_id)):
     require_own_user(user_id, token_user_id)
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     memories = await loop.run_in_executor(_executor, lambda: get_all_memories(user_id=user_id))
     items = [
         MemoryItem(
@@ -43,7 +43,7 @@ async def list_memories(user_id: str, token_user_id: str = Depends(get_current_u
 @router.get("/{user_id}/search", response_model=MemoriesResponse)
 async def search(user_id: str, q: str, limit: int = Query(default=10, le=100), token_user_id: str = Depends(get_current_user_id)):
     require_own_user(user_id, token_user_id)
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     memories = await loop.run_in_executor(
         _executor, lambda: search_memories(user_id=user_id, query=q, limit=min(limit, 100))
     )
@@ -62,7 +62,7 @@ async def search(user_id: str, q: str, limit: int = Query(default=10, le=100), t
 async def remove_memory(user_id: str, memory_id: str, token_user_id: str = Depends(get_current_user_id)):
     require_own_user(user_id, token_user_id)
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         await loop.run_in_executor(_executor, lambda: delete_memory(memory_id))
         return {"deleted": memory_id}
     except Exception:

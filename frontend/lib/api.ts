@@ -67,6 +67,8 @@ export interface Profile {
   language: string;
   sales_tax_registered: boolean | null;
   revenue_range: string | null;
+  accountant_email: string | null;
+  prior_year_net_income: number | null;
 }
 
 export async function sendMessage(
@@ -162,13 +164,14 @@ export async function deleteAccount(userId: string): Promise<void> {
 export interface NotificationPrefs {
   deadline_email: boolean;
   reminder_days_before: number;
+  monthly_digest_email: boolean;
 }
 
 export async function getNotificationPrefs(userId: string): Promise<NotificationPrefs> {
   const res = await fetch(`${BASE}/notifications/${userId}/preferences`, {
     headers: await authHeader(),
   });
-  if (!res.ok) return { deadline_email: false, reminder_days_before: 7 };
+  if (!res.ok) return { deadline_email: false, reminder_days_before: 7, monthly_digest_email: false };
   return res.json();
 }
 

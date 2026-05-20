@@ -162,6 +162,103 @@ def send_deadline_reminder(
         return False
 
 
+def send_monthly_digest(
+    to_email: str,
+    business_name: str,
+    province: str,
+    language: str,
+    upcoming_deadlines: list[DeadlineInfo],
+    quarterly_installment: float | None,
+    prior_year_net_income: float | None,
+) -> bool:
+    """Monthly digest email: upcoming deadlines + installment reminder."""
+    if not settings.resend_api_key:
+        return False
+
+    t = language == "en"
+    month_label = date.today().strftime("%B %Y")
+
+    subject = (
+        f"Votre bilan fiscal mensuel — {business_name} — {month_label}"
+        if not t else
+        f"Your monthly tax digest — {business_name} — {month_label}"
+    )
+
+    deadline_rows = "".join(_deadline_row(d, language) for d in upcoming_deadlines[:5])
+    no_deadlines = (
+        '<p style="color:#10b981;font-weight:600;font-size:14px;">✅ Aucune échéance imminente ce mois-ci.</p>'
+        if not t else
+        '<p style="color:#10b981;font-weight:600;font-size:14px;">✅ No deadlines coming up this month.</p>'
+    )
+
+    installment_block = ""
+    if quarterly_installment and quarterly_installment > 0:
+        installment_block = f"""
+      <div style="background:#fffbeb;border-radius:10px;padding:16px;border-left:4px solid #f59e0b;margin:20px 0;">
+        <p style="color:#92400e;font-weight:600;font-size:14px;margin:0 0 6px;">
+          {"💰 Acomptes provisionnels estimés" if not t else "💰 Estimated quarterly installments"}
+        </p>
+        <p style="color:#78350f;font-size:13px;margin:0 0 4px;">
+          {"Basé sur un revenu net de" if not t else "Based on prior-year net income of"}
+          <strong>{prior_year_net_income:,.0f} $</strong>
+        </p>
+        <p style="color:#92400e;font-size:22px;font-weight:800;margin:8px 0 4px;">
+          {quarterly_installment:,.0f} $ / {"trimestre" if not t else "quarter"}
+        </p>
+        <p style="color:#a16207;font-size:11px;margin:0;">
+          {"Dates : 15 mars · 15 juin · 15 sept · 15 déc · Estimation seulement — consultez un comptable."
+           if not t else
+           "Due: Mar 15 · Jun 15 · Sep 15 · Dec 15 · Estimate only — consult a CPA."}
+        </p>
+      </div>"""
+
+    body = f"""
+      <h2 style="color:#0f172a;font-size:18px;margin:0 0 4px;">
+        {"📊 Bilan fiscal" if not t else "📊 Tax digest"} — {month_label}
+      </h2>
+      <p style="color:#475569;font-size:14px;margin:0 0 20px;">
+        {"Bonjour" if not t else "Hi"} <strong>{business_name}</strong>,
+      </p>
+
+      <p style="color:#0f172a;font-weight:600;font-size:15px;margin:0 0 8px;">
+        {"Prochaines échéances" if not t else "Upcoming deadlines"}
+      </p>
+      {deadline_rows if upcoming_deadlines else no_deadlines}
+
+      {installment_block}
+
+      <p style="color:#64748b;font-size:11px;margin:24px 0 0;line-height:1.6;">
+        {"Basé sur votre profil ({province}). Consultez un comptable pour votre situation précise."
+         if not t else
+         "Based on your profile ({province}). Consult a CPA for your specific situation."}
+      </p>
+    """.format(province=province)
+
+    html = _BASE_HTML.format(
+        lang=language,
+        subject=subject,
+        tagline="Votre conseiller d'affaires IA · Canada" if not t else "Your AI Business Advisor · Canada",
+        body=body,
+        app_url=settings.app_url,
+        cta_label="Ouvrir Agent SMB →" if not t else "Open Agent SMB →",
+        unsubscribe_label="Gérer les notifications" if not t else "Manage notifications",
+    )
+
+    try:
+        client = resend.Resend(api_key=settings.resend_api_key)
+        client.emails.send({
+            "from": settings.from_email,
+            "to": [to_email],
+            "subject": subject,
+            "html": html,
+        })
+        logger.info(f"[email] Monthly digest sent to {to_email}")
+        return True
+    except Exception as e:
+        logger.error(f"[email] Failed to send monthly digest: {e}")
+        return False
+
+
 def send_welcome_email(
     to_email: str,
     business_name: str,

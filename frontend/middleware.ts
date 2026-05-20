@@ -31,11 +31,11 @@ export async function middleware(request: NextRequest) {
   // Redirect unauthenticated users away from protected routes
   const isProtected = PROTECTED.some((p) => path.startsWith(p));
   if (!user && isProtected) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   // Redirect authenticated users away from login
-  if (user && path === "/") {
+  if (user && (path === "/login")) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

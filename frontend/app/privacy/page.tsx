@@ -40,7 +40,7 @@ export default function PrivacyPage() {
           <section className="space-y-3">
             <h2 className="text-base font-bold text-white">1. Qui nous sommes</h2>
             <p>
-              Agent SMB est un conseiller d&apos;affaires IA bilingue développé par <strong className="text-white">Cadieux AI Labs</strong> (Canada).
+              Agent SMB est un conseiller d&apos;affaires IA bilingue développé par <strong className="text-white">CadieuxAI Inc.</strong> (Canada).
               Nous offrons un service d&apos;assistance aux petites et moyennes entreprises canadiennes pour la gestion fiscale, la trésorerie et la conformité.
             </p>
           </section>
@@ -126,7 +126,7 @@ export default function PrivacyPage() {
             <h2 className="text-base font-bold text-white">8. Contact</h2>
             <p>
               Pour toute question concernant la confidentialité de vos données :<br />
-              <strong className="text-white">Cadieux AI Labs</strong><br />
+              <strong className="text-white">CadieuxAI Inc.</strong><br />
               <a href="mailto:privacy@cadieuxai.com" className="text-brand-text hover:text-brand">privacy@cadieuxai.com</a>
             </p>
           </section>

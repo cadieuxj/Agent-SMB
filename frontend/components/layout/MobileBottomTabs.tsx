@@ -16,10 +16,10 @@ interface MobileBottomTabsProps {
 }
 
 const TABS = [
-  { id: "dashboard" as TabId, href: "/dashboard", icon: LayoutDashboard, labelFr: "Tableau",  labelEn: "Home" },
-  { id: "chat"      as TabId, href: "/chat",      icon: MessageSquare,   labelFr: "Chat",     labelEn: "Chat" },
-  { id: "memory"    as TabId, href: "/memory",    icon: Layers,          labelFr: "Mémoire",  labelEn: "Memory" },
-  { id: "settings"  as TabId, href: "/settings",  icon: Settings,        labelFr: "Profil",   labelEn: "Profile" },
+  { id: "dashboard" as TabId, href: "/dashboard", icon: LayoutDashboard, labelFr: "Accueil",   labelEn: "Home" },
+  { id: "chat"      as TabId, href: "/chat",      icon: MessageSquare,   labelFr: "Chat",      labelEn: "Chat" },
+  { id: "memory"    as TabId, href: "/memory",    icon: Layers,          labelFr: "Documents", labelEn: "Docs" },
+  { id: "settings"  as TabId, href: "/settings",  icon: Settings,        labelFr: "Compte",    labelEn: "Account" },
 ];
 
 export default function MobileBottomTabs({

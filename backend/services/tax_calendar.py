@@ -193,6 +193,86 @@ def get_upcoming_deadlines(
     return results
 
 
+def calculate_installments(
+    prior_year_net_income: float,
+    province: str = "QC",
+) -> dict:
+    """
+    Estimate quarterly CRA installment amounts for a self-employed individual.
+
+    Uses Option 1 (prior-year method): divide prior-year total tax by 4.
+    Installments due: Mar 15, Jun 15, Sep 15, Dec 15.
+
+    Returns a dict with breakdown and quarterly amount. This is an estimate only.
+    """
+    income = float(prior_year_net_income)
+    if income <= 0:
+        return {"quarterly_installment": 0.0, "total_annual": 0.0, "needs_installments": False}
+
+    # 2025 federal tax brackets
+    def _federal_tax(inc: float) -> float:
+        brackets = [
+            (57_375, 0.15),
+            (57_375, 0.205),
+            (63_895, 0.26),
+            (76_782, 0.29),
+            (float("inf"), 0.33),
+        ]
+        tax, remaining = 0.0, inc
+        for size, rate in brackets:
+            chunk = min(remaining, size)
+            tax += chunk * rate
+            remaining -= chunk
+            if remaining <= 0:
+                break
+        return tax
+
+    # 2025 basic personal amount federal credit
+    basic_credit = 15_705 * 0.15
+
+    fed_tax = max(_federal_tax(income) - basic_credit, 0.0)
+
+    # CPP self-employed: 11.9% on (income - $3,500) capped at $68,500 earnings
+    cpp_base = min(max(income - 3_500, 0), 65_000)  # max pensionable - exemption
+    cpp = cpp_base * 0.119
+
+    # Simplified provincial rates (effective, not marginal)
+    prov_rates: dict[str, float] = {
+        "QC": 0.14,   # QC 14% effective + QPP handled separately
+        "ON": 0.085,
+        "BC": 0.087,
+        "AB": 0.10,
+        "MB": 0.109,
+        "SK": 0.105,
+        "NS": 0.115,
+        "NB": 0.103,
+        "NL": 0.119,
+        "PE": 0.098,
+    }
+    prov_rate = prov_rates.get(province.upper(), 0.10)
+    prov_basic = 15_000 * prov_rate  # rough provincial basic personal credit
+    prov_tax = max(income * prov_rate - prov_basic, 0.0)
+
+    # QPP for QC self-employed (replaces CPP): 12.8% rate in 2025
+    if province.upper() == "QC":
+        cpp = min(max(income - 3_500, 0), 69_700) * 0.128
+
+    total = fed_tax + cpp + prov_tax
+
+    # CRA installment threshold: if net tax > $3,000 you must pay installments
+    needs = total > 3_000
+
+    return {
+        "federal_tax": round(fed_tax, 2),
+        "cpp_qpp": round(cpp, 2),
+        "provincial_tax": round(prov_tax, 2),
+        "total_annual": round(total, 2),
+        "quarterly_installment": round(total / 4, 2),
+        "needs_installments": needs,
+        "province": province,
+    }
+
+
 def format_for_prompt(deadlines: list[Deadline], language: str = "fr") -> str:
     """Format deadlines as a compact string for injection into agent system prompts."""
     if not deadlines:

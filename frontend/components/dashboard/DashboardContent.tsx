@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Menu } from "lucide-react";
 import Link from "next/link";
 import { getProfile, getDeadlines, getSuggestions, getMemories } from "@/lib/api";
@@ -13,6 +13,8 @@ import DeadlineCard from "@/components/dashboard/DeadlineCard";
 import SuggestionsCard from "@/components/dashboard/SuggestionsCard";
 import MemorySnapshot from "@/components/dashboard/MemorySnapshot";
 import QuickChat from "@/components/dashboard/QuickChat";
+import FiscalCalendar from "@/components/dashboard/FiscalCalendar";
+import InstallmentCard from "@/components/dashboard/InstallmentCard";
 import { Spinner } from "@/components/ui/spinner";
 
 function PriorityHero({ deadline, suggestion, language }: { deadline: Deadline | null; suggestion: Suggestion | null; language: "fr" | "en" }) {
@@ -77,6 +79,11 @@ export default function DashboardContent({
   const language = (profile?.language ?? "fr") as "fr" | "en";
   const t = language === "en";
 
+  const refreshMemories = useCallback(async () => {
+    const m = await getMemories(userId);
+    setMemories(m);
+  }, [userId]);
+
   useEffect(() => {
     Promise.all([
       getProfile(userId),
@@ -91,6 +98,13 @@ export default function DashboardContent({
       setLoading(false);
     });
   }, [userId]);
+
+  // Re-fetch memories when window regains focus (user returns from chat)
+  useEffect(() => {
+    const onFocus = () => { refreshMemories(); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [refreshMemories]);
 
   const firstName = profile?.full_name?.split(" ")[0] ?? null;
 
@@ -154,6 +168,39 @@ export default function DashboardContent({
                     language={language}
                   />
                 )}
+
+                {/* Installment sticky card — only when prior-year income is set */}
+                {profile?.prior_year_net_income ? (
+                  <InstallmentCard
+                    language={language}
+                    priorYearIncome={profile.prior_year_net_income}
+                    province={profile.province ?? "QC"}
+                    userId={userId}
+                    onIncomeUpdated={(v) => setProfile((p) => p ? { ...p, prior_year_net_income: v } : p)}
+                  />
+                ) : (
+                  <a
+                    href="/settings"
+                    className="flex items-center justify-between gap-4 bg-warning/5 border border-warning/20 rounded-xl px-5 py-3 hover:bg-warning/10 transition-colors group"
+                  >
+                    <div>
+                      <p className="text-xs font-semibold text-warning">
+                        {t ? "Estimate your quarterly installments" : "Estimez vos acomptes provisionnels"}
+                      </p>
+                      <p className="text-[11px] text-gray-500 mt-0.5">
+                        {t ? "Add your prior-year income in Account settings →" : "Ajoutez votre revenu net dans Compte → Comptable →"}
+                      </p>
+                    </div>
+                    <ArrowRight size={14} className="text-warning shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                  </a>
+                )}
+
+                {/* Fiscal calendar — full width, below installment card */}
+                <FiscalCalendar
+                  language={language}
+                  priorYearIncome={profile?.prior_year_net_income ?? null}
+                  province={profile?.province ?? "QC"}
+                />
 
                 {/* Widget grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

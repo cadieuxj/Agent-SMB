@@ -15,6 +15,88 @@ logger = logging.getLogger(__name__)
 _scheduler: BackgroundScheduler | None = None
 
 
+def _run_monthly_digest() -> None:
+    """
+    On the 1st of each month at 8AM ET:
+    For every user with monthly_digest_email = true:
+    1. Load their profile (province, language, email, prior_year_net_income)
+    2. Get upcoming deadlines within the next 45 days
+    3. Calculate estimated quarterly installments if income is set
+    4. Send a bilingual digest email
+    """
+    from services.email import send_monthly_digest, DeadlineInfo
+    from services.tax_calendar import get_upcoming_deadlines, calculate_installments
+    from core.supabase_client import get_supabase
+
+    db = get_supabase()
+    prefs = (
+        db.table("notification_preferences")
+        .select("user_id")
+        .eq("monthly_digest_email", True)
+        .execute()
+    ).data or []
+
+    if not prefs:
+        return
+
+    sent = 0
+    for pref in prefs:
+        user_id = pref["user_id"]
+        try:
+            from postgrest.exceptions import APIError
+            profile_result = (
+                db.table("profiles")
+                .select("email, business_name, province, language, prior_year_net_income")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
+            profile = profile_result.data if profile_result is not None else None
+        except Exception:
+            profile = None
+        if not profile or not profile.get("email"):
+            continue
+
+        province = profile.get("province", "QC")
+        language = profile.get("language", "fr")
+        net_income = profile.get("prior_year_net_income")
+
+        deadlines = get_upcoming_deadlines(
+            today=date.today(),
+            horizon_days=45,
+            province=province,
+        )
+        deadline_infos = [
+            DeadlineInfo(
+                title=d.title,
+                title_fr=d.title_fr,
+                days_until=d.days_until,
+                authority=d.authority,
+                deadline_date=d.date.strftime("%d %B %Y"),
+            )
+            for d in deadlines[:5]
+        ]
+
+        installment = None
+        if net_income and float(net_income) > 0:
+            calc = calculate_installments(float(net_income), province)
+            installment = calc["quarterly_installment"] if calc["needs_installments"] else None
+
+        ok = send_monthly_digest(
+            to_email=profile["email"],
+            business_name=profile.get("business_name") or "votre entreprise",
+            province=province,
+            language=language,
+            upcoming_deadlines=deadline_infos,
+            quarterly_installment=installment,
+            prior_year_net_income=float(net_income) if net_income else None,
+        )
+        if ok:
+            sent += 1
+
+    logger.info(f"[scheduler] Monthly digests sent to {sent} users")
+
+
 def _run_daily_suggestions() -> None:
     from services.suggestions import run_for_all_users
     logger.info("[scheduler] Running daily suggestions job")
@@ -52,13 +134,18 @@ def _run_deadline_reminders() -> None:
         user_id = pref["user_id"]
         window = pref["reminder_days_before"]
 
-        profile = (
-            db.table("profiles")
-            .select("email, business_name, province, language")
-            .eq("id", user_id)
-            .maybe_single()
-            .execute()
-        ).data
+        try:
+            from postgrest.exceptions import APIError
+            profile_result = (
+                db.table("profiles")
+                .select("email, business_name, province, language")
+                .eq("id", user_id)
+                .maybe_single()
+                .execute()
+            )
+            profile = profile_result.data if profile_result is not None else None
+        except Exception:
+            profile = None
         if not profile or not profile.get("email"):
             continue
 
@@ -107,6 +194,12 @@ def start() -> BackgroundScheduler:
         _run_daily_suggestions,
         trigger=CronTrigger(hour=8, minute=0, timezone="America/Toronto"),
         id="daily_suggestions",
+        replace_existing=True,
+    )
+    _scheduler.add_job(
+        _run_monthly_digest,
+        trigger=CronTrigger(day=1, hour=8, minute=0, timezone="America/Toronto"),
+        id="monthly_digest",
         replace_existing=True,
     )
 

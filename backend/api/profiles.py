@@ -2,6 +2,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from postgrest.exceptions import APIError
 from pydantic import BaseModel
 
 from core.auth import get_current_user_id, require_own_user
@@ -22,6 +23,8 @@ class ProfileResponse(BaseModel):
     language: str
     sales_tax_registered: bool | None
     revenue_range: str | None
+    accountant_email: str | None = None
+    prior_year_net_income: float | None = None
 
 
 class ProfileUpdate(BaseModel):
@@ -33,15 +36,22 @@ class ProfileUpdate(BaseModel):
     language: str | None = None
     sales_tax_registered: bool | None = None
     revenue_range: str | None = None
+    accountant_email: str | None = None
+    prior_year_net_income: float | None = None
 
 
 @router.get("/{user_id}", response_model=ProfileResponse)
 async def get_profile(user_id: str, token_user_id: str = Depends(get_current_user_id)):
     require_own_user(user_id, token_user_id)
     db = get_supabase()
-    result = db.table("profiles").select("*").eq("id", user_id).maybe_single().execute()
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Profile not found")
+    try:
+        result = db.table("profiles").select("*").eq("id", user_id).maybe_single().execute()
+        if result is None or not result.data:
+            raise HTTPException(status_code=404, detail="Profile not found")
+    except APIError as exc:
+        if str(exc.code) == "204":
+            raise HTTPException(status_code=404, detail="Profile not found")
+        raise HTTPException(status_code=500, detail="Failed to load profile")
     r = result.data
     return ProfileResponse(
         id=r["id"],
@@ -53,6 +63,8 @@ async def get_profile(user_id: str, token_user_id: str = Depends(get_current_use
         language=r.get("language", "fr"),
         sales_tax_registered=r.get("sales_tax_registered"),
         revenue_range=r.get("revenue_range"),
+        accountant_email=r.get("accountant_email"),
+        prior_year_net_income=r.get("prior_year_net_income"),
     )
 
 
@@ -102,6 +114,8 @@ async def update_profile(
         language=r.get("language", "fr"),
         sales_tax_registered=r.get("sales_tax_registered"),
         revenue_range=r.get("revenue_range"),
+        accountant_email=r.get("accountant_email"),
+        prior_year_net_income=r.get("prior_year_net_income"),
     )
 
 
@@ -110,9 +124,15 @@ async def delete_account(user_id: str, token_user_id: str = Depends(get_current_
     """Right to erasure — Law 25 / PIPEDA §28."""
     require_own_user(user_id, token_user_id)
     db = get_supabase()
-    # Cascade FK handles messages; delete remaining tables explicitly
-    for table in ("suggestions", "memory_snapshots", "conversations", "profiles"):
+    # Cascade FK on messages/conversations; delete non-cascading tables explicitly
+    for table in ("suggestions", "notification_preferences", "conversations", "profiles"):
         db.table(table).delete().eq("user_id" if table != "profiles" else "id", user_id).execute()
+    # Delete all Mem0 memories (Law 25 §28 right to erasure)
+    try:
+        from core.mem0_client import get_mem0
+        get_mem0().delete_all(user_id=user_id)
+    except Exception:
+        pass
     try:
         db.auth.admin.delete_user(user_id)
     except Exception:
